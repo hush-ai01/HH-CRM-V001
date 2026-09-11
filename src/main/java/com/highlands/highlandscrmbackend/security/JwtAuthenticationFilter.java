@@ -32,54 +32,148 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String authorizationHeader = request.getHeader("Authorization");
-
-        if (authorizationHeader == null
-                || !authorizationHeader.startsWith("Bearer ")) {
-
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        String token = authorizationHeader.substring(7);
-
-        if (!jwtService.isTokenValid(token)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         try {
-            UUID userId = jwtService.extractUserId(token);
-            UUID companyId = jwtService.extractCompanyId(token);
-            String email = jwtService.extractEmail(token);
-            Set<String> roles = jwtService.extractRoles(token);
+            String authorizationHeader =
+                    request.getHeader("Authorization");
 
-            var authorities = roles.stream()
-                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                    .collect(Collectors.toSet());
+            /*
+             * No Authorization header.
+             *
+             * We don't authenticate the request here.
+             * Spring Security will decide later whether
+             * the endpoint requires authentication.
+             */
+            if (authorizationHeader == null
+                    || !authorizationHeader.startsWith("Bearer ")) {
 
-            JwtAuthenticationPrincipal principal =
-                    new JwtAuthenticationPrincipal(
-                            userId,
-                            companyId,
-                            email
-                    );
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(
-                            principal,
-                            null,
-                            authorities
-                    );
+            /*
+             * Extract JWT from:
+             *
+             * Authorization: Bearer <token>
+             */
+            String token = authorizationHeader.substring(7);
 
-            SecurityContextHolder
-                    .getContext()
-                    .setAuthentication(authentication);
+            /*
+             * If the JWT is invalid or expired, don't create
+             * an authentication object.
+             *
+             * Spring Security will subsequently reject the
+             * request if the endpoint is protected.
+             */
+            if (!jwtService.isTokenValid(token)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-        } catch (RuntimeException exception) {
-            SecurityContextHolder.clearContext();
+            try {
+                /*
+                 * Extract identity information from the JWT.
+                 */
+                UUID userId =
+                        jwtService.extractUserId(token);
+
+                UUID companyId =
+                        jwtService.extractCompanyId(token);
+
+                String email =
+                        jwtService.extractEmail(token);
+
+                Set<String> roles =
+                        jwtService.extractRoles(token);
+
+                /*
+                 * Convert application roles into Spring Security
+                 * authorities.
+                 *
+                 * Example:
+                 *
+                 * ADMIN
+                 *
+                 * becomes:
+                 *
+                 * ROLE_ADMIN
+                 */
+                var authorities = roles.stream()
+                        .map(role ->
+                                new SimpleGrantedAuthority(
+                                        "ROLE_" + role
+                                )
+                        )
+                        .collect(Collectors.toSet());
+
+                /*
+                 * Create our application-specific authenticated
+                 * principal.
+                 */
+                JwtAuthenticationPrincipal principal =
+                        new JwtAuthenticationPrincipal(
+                                userId,
+                                companyId,
+                                email
+                        );
+
+                /*
+                 * Create the Spring Security Authentication object.
+                 */
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                principal,
+                                null,
+                                authorities
+                        );
+
+                /*
+                 * Store the authenticated user in Spring Security's
+                 * SecurityContext.
+                 */
+                SecurityContextHolder
+                        .getContext()
+                        .setAuthentication(authentication);
+
+                /*
+                 * Establish the tenant/company for this request.
+                 *
+                 * IMPORTANT:
+                 * The company ID comes from the trusted JWT,
+                 * NOT from a frontend request parameter.
+                 */
+                TenantContext.setCompanyId(companyId);
+
+            } catch (RuntimeException exception) {
+
+                /*
+                 * Something went wrong while extracting or processing
+                 * the JWT.
+                 *
+                 * Do not leave a partially authenticated request
+                 * in the SecurityContext.
+                 */
+                SecurityContextHolder.clearContext();
+                TenantContext.clear();
+            }
+
+            /*
+             * Continue the request through the remaining filters
+             * and eventually to the controller.
+             */
+            filterChain.doFilter(request, response);
+
+        } finally {
+
+            /*
+             * VERY IMPORTANT:
+             *
+             * Servlet container threads are reused.
+             *
+             * If we don't clear TenantContext, a subsequent request
+             * handled by the same thread could accidentally inherit
+             * the previous user's company ID.
+             */
+            TenantContext.clear();
         }
-
-        filterChain.doFilter(request, response);
     }
 }

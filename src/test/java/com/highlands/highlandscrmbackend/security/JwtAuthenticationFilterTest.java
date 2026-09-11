@@ -5,9 +5,9 @@ import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
@@ -49,34 +49,47 @@ class JwtAuthenticationFilterTest {
         roles = Set.of("ADMIN", "MANAGER");
 
         SecurityContextHolder.clearContext();
+        TenantContext.clear();
     }
 
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+        TenantContext.clear();
     }
 
     @Test
-    void shouldContinueChainWhenAuthorizationHeaderIsMissing() throws Exception {
+    void shouldContinueChainWhenAuthorizationHeaderIsMissing()
+            throws Exception {
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
 
         filter.doFilter(request, response, filterChain);
 
         verify(filterChain).doFilter(request, response);
 
         assertNull(
-                SecurityContextHolder.getContext().getAuthentication()
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication()
         );
+
+        assertNull(TenantContext.getCompanyId());
     }
 
     @Test
     void shouldContinueChainWhenAuthorizationHeaderDoesNotUseBearerScheme()
             throws Exception {
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
 
         request.addHeader(
                 "Authorization",
@@ -88,17 +101,25 @@ class JwtAuthenticationFilterTest {
         verify(filterChain).doFilter(request, response);
 
         assertNull(
-                SecurityContextHolder.getContext().getAuthentication()
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication()
         );
+
+        assertNull(TenantContext.getCompanyId());
     }
 
     @Test
-    void shouldContinueChainWhenTokenIsInvalid() throws Exception {
+    void shouldContinueChainWhenTokenIsInvalid()
+            throws Exception {
 
         String token = "invalid-token";
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
 
         request.addHeader(
                 "Authorization",
@@ -113,17 +134,25 @@ class JwtAuthenticationFilterTest {
         verify(filterChain).doFilter(request, response);
 
         assertNull(
-                SecurityContextHolder.getContext().getAuthentication()
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication()
         );
+
+        assertNull(TenantContext.getCompanyId());
     }
 
     @Test
-    void shouldAuthenticateRequestWhenTokenIsValid() throws Exception {
+    void shouldAuthenticateRequestWhenTokenIsValid()
+            throws Exception {
 
         String token = "valid-token";
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
 
         request.addHeader(
                 "Authorization",
@@ -148,11 +177,19 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, response, filterChain);
 
         Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
 
         assertTrue(authentication.isAuthenticated());
 
         verify(filterChain).doFilter(request, response);
+
+        /*
+         * The TenantContext should have been cleared
+         * after the request completed.
+         */
+        assertNull(TenantContext.getCompanyId());
     }
 
     @Test
@@ -161,8 +198,11 @@ class JwtAuthenticationFilterTest {
 
         String token = "valid-token";
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
 
         request.addHeader(
                 "Authorization",
@@ -187,7 +227,9 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, response, filterChain);
 
         Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
 
         JwtAuthenticationPrincipal principal =
                 assertInstanceOf(
@@ -198,6 +240,11 @@ class JwtAuthenticationFilterTest {
         assertEquals(userId, principal.userId());
         assertEquals(companyId, principal.companyId());
         assertEquals(email, principal.email());
+
+        /*
+         * TenantContext must not survive the request.
+         */
+        assertNull(TenantContext.getCompanyId());
     }
 
     @Test
@@ -206,8 +253,11 @@ class JwtAuthenticationFilterTest {
 
         String token = "valid-token";
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
 
         request.addHeader(
                 "Authorization",
@@ -232,13 +282,16 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, response, filterChain);
 
         Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
 
         assertTrue(
                 authentication.getAuthorities()
                         .stream()
                         .anyMatch(authority ->
-                                authority.getAuthority().equals("ROLE_ADMIN")
+                                authority.getAuthority()
+                                        .equals("ROLE_ADMIN")
                         )
         );
 
@@ -246,9 +299,12 @@ class JwtAuthenticationFilterTest {
                 authentication.getAuthorities()
                         .stream()
                         .anyMatch(authority ->
-                                authority.getAuthority().equals("ROLE_MANAGER")
+                                authority.getAuthority()
+                                        .equals("ROLE_MANAGER")
                         )
         );
+
+        assertNull(TenantContext.getCompanyId());
     }
 
     @Test
@@ -257,8 +313,11 @@ class JwtAuthenticationFilterTest {
 
         String token = "malformed-token";
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
 
         request.addHeader(
                 "Authorization",
@@ -269,15 +328,77 @@ class JwtAuthenticationFilterTest {
                 .thenReturn(true);
 
         when(jwtService.extractUserId(token))
-                .thenThrow(new IllegalArgumentException("Malformed token"));
+                .thenThrow(
+                        new IllegalArgumentException(
+                                "Malformed token"
+                        )
+                );
 
         filter.doFilter(request, response, filterChain);
 
         verify(filterChain).doFilter(request, response);
 
         assertNull(
-                SecurityContextHolder.getContext().getAuthentication()
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication()
         );
+
+        assertNull(TenantContext.getCompanyId());
+    }
+
+    @Test
+    void shouldSetTenantContextDuringRequest()
+            throws Exception {
+
+        String token = "valid-token";
+
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
+
+        request.addHeader(
+                "Authorization",
+                "Bearer " + token
+        );
+
+        when(jwtService.isTokenValid(token))
+                .thenReturn(true);
+
+        when(jwtService.extractUserId(token))
+                .thenReturn(userId);
+
+        when(jwtService.extractCompanyId(token))
+                .thenReturn(companyId);
+
+        when(jwtService.extractEmail(token))
+                .thenReturn(email);
+
+        when(jwtService.extractRoles(token))
+                .thenReturn(roles);
+
+        /*
+         * The filter chain executes while the TenantContext
+         * is still active.
+         */
+        org.mockito.Mockito.doAnswer(invocation -> {
+
+            assertEquals(
+                    companyId,
+                    TenantContext.getCompanyId()
+            );
+
+            return null;
+
+        }).when(filterChain).doFilter(request, response);
+
+        filter.doFilter(request, response, filterChain);
+
+        /*
+         * Once the request finishes, the tenant must be removed.
+         */
+        assertNull(TenantContext.getCompanyId());
     }
 }
-
