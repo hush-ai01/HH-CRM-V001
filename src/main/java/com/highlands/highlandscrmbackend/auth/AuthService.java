@@ -7,6 +7,9 @@ import com.highlands.highlandscrmbackend.user.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.highlands.highlandscrmbackend.role.Role;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -15,15 +18,18 @@ public class AuthService {
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     public AuthService(
             UserRepository userRepository,
             CompanyRepository companyRepository,
-            PasswordEncoder passwordEncoder) {
-
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService
+    ) {
         this.userRepository = userRepository;
         this.companyRepository = companyRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -62,7 +68,22 @@ public class AuthService {
             );
         }
 
+        Set<String> roles = user.getRoles()
+                .stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet());
+
+        String accessToken = jwtService.generateToken(
+                user.getId(),
+                user.getCompany().getId(),
+                user.getEmail(),
+                roles
+        );
+
         return new LoginResponse(
+                accessToken,
+                "Bearer",
+                1800,
                 user.getId(),
                 user.getCompany().getId(),
                 user.getEmail(),

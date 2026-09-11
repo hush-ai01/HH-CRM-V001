@@ -15,6 +15,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.highlands.highlandscrmbackend.role.Role;
+
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -31,10 +35,14 @@ class AuthServiceTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
+    private JwtService jwtService;
+
+    @Mock
     private Company company;
 
     @Mock
     private User user;
+
 
     private AuthService authService;
 
@@ -46,7 +54,8 @@ class AuthServiceTest {
         authService = new AuthService(
                 userRepository,
                 companyRepository,
-                passwordEncoder
+                passwordEncoder,
+                jwtService
         );
 
         companyId = UUID.randomUUID();
