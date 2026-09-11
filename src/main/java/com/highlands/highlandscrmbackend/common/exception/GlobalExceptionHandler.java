@@ -1,5 +1,6 @@
 package com.highlands.highlandscrmbackend.common.exception;
 
+import com.highlands.highlandscrmbackend.auth.InvalidCredentialsException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -88,6 +89,16 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.CONFLICT,
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidCredentials(
+            InvalidCredentialsException exception) {
+
+        return buildResponse(
+                HttpStatus.UNAUTHORIZED,
                 exception.getMessage()
         );
     }
