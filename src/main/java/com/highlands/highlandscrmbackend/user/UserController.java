@@ -29,12 +29,10 @@ public class UserController {
                 .body(response);
     }
 
-    @GetMapping("/company/{companyId}")
-    public ResponseEntity<List<UserResponse>> getUsersByCompany(
-            @PathVariable UUID companyId
-    ) {
+    @GetMapping
+    public ResponseEntity<List<UserResponse>> getUsersByCompany() {
         return ResponseEntity.ok(
-                userService.getUsersByCompany(companyId)
+                userService.getUsersByCompany()
         );
     }
 

@@ -1,8 +1,6 @@
-
 package com.highlands.highlandscrmbackend.user;
 
 import com.highlands.highlandscrmbackend.common.exception.GlobalExceptionHandler;
-import com.highlands.highlandscrmbackend.common.exception.ResourceNotFoundException;
 import com.highlands.highlandscrmbackend.common.exception.UserAlreadyExistsException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -160,7 +158,7 @@ class UserControllerTest {
     }
 
     @Test
-    void shouldGetUsersByCompanySuccessfully() throws Exception {
+    void shouldGetUsersSuccessfully() throws Exception {
 
         UUID companyId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
@@ -177,11 +175,11 @@ class UserControllerTest {
                 OffsetDateTime.now()
         );
 
-        when(userService.getUsersByCompany(companyId))
+        when(userService.getUsersByCompany())
                 .thenReturn(List.of(response));
 
         mockMvc.perform(
-                        get("/users/company/{companyId}", companyId)
+                        get("/users")
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()")
@@ -192,27 +190,7 @@ class UserControllerTest {
                         .value("john.doe@highlands.co.za"));
 
         verify(userService)
-                .getUsersByCompany(companyId);
-    }
-
-    @Test
-    void shouldRejectMissingCompanyWhenGettingUsers() throws Exception {
-
-        UUID companyId = UUID.randomUUID();
-
-        when(userService.getUsersByCompany(companyId))
-                .thenThrow(
-                        new ResourceNotFoundException(
-                                "Company with id '" +
-                                        companyId +
-                                        "' not found"
-                        )
-                );
-
-        mockMvc.perform(
-                        get("/users/company/{companyId}", companyId)
-                )
-                .andExpect(status().isNotFound());
+                .getUsersByCompany();
     }
 
     @Test
@@ -258,7 +236,7 @@ class UserControllerTest {
 
         when(userService.getUserById(userId))
                 .thenThrow(
-                        new ResourceNotFoundException(
+                        new com.highlands.highlandscrmbackend.common.exception.ResourceNotFoundException(
                                 "User with id '" +
                                         userId +
                                         "' not found"
@@ -283,4 +261,3 @@ class UserControllerTest {
                 .getUserById(any(UUID.class));
     }
 }
-

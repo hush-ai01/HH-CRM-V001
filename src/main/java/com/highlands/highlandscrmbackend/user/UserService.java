@@ -6,6 +6,7 @@ import com.highlands.highlandscrmbackend.company.Company;
 import com.highlands.highlandscrmbackend.company.CompanyRepository;
 import com.highlands.highlandscrmbackend.role.Role;
 import com.highlands.highlandscrmbackend.role.RoleRepository;
+import com.highlands.highlandscrmbackend.security.TenantContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -38,13 +40,15 @@ public class UserService {
 
     public UserResponse createUser(UserCreateRequest request) {
 
-        Company company = companyRepository.findById(request.companyId())
+        UUID companyId = TenantContext.requireCompanyId();
+
+        Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Company with id '" + request.companyId() + "' not found"
+                        "Company with id '" + companyId + "' not found"
                 ));
 
         if (userRepository.existsByCompanyIdAndEmail(
-                request.companyId(),
+                companyId,
                 request.email()
         )) {
             throw new UserAlreadyExistsException(
@@ -53,7 +57,7 @@ public class UserService {
             );
         }
 
-        Set<Role> roles = resolveRoles(request.companyId(), request.roleIds());
+        Set<Role> roles = resolveRoles(request.roleIds());
 
         String passwordHash = passwordEncoder.encode(request.password());
 
@@ -73,13 +77,9 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public List<UserResponse> getUsersByCompany(UUID companyId) {
+    public List<UserResponse> getUsersByCompany() {
 
-        if (!companyRepository.existsById(companyId)) {
-            throw new ResourceNotFoundException(
-                    "Company with id '" + companyId + "' not found"
-            );
-        }
+        UUID companyId = TenantContext.requireCompanyId();
 
         return userRepository.findAllByCompanyId(companyId)
                 .stream()
@@ -90,7 +90,12 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse getUserById(UUID id) {
 
-        User user = userRepository.findById(id)
+        UUID companyId = TenantContext.requireCompanyId();
+
+        User user = userRepository.findByIdAndCompanyId(
+                        id,
+                        companyId
+                )
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "User with id '" + id + "' not found"
                 ));
@@ -98,32 +103,21 @@ public class UserService {
         return UserResponse.from(user);
     }
 
-    private Set<Role> resolveRoles(UUID companyId, Set<UUID> roleIds) {
+    private Set<Role> resolveRoles(Set<UUID> roleIds) {
 
-        if (roleIds == null || roleIds.isEmpty()) {
-            return new HashSet<>();
-        }
+        UUID companyId = TenantContext.requireCompanyId();
 
-        Set<Role> roles = new HashSet<>();
-
-        for (UUID roleId : roleIds) {
-
-            Role role = roleRepository.findById(roleId)
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Role with id '" + roleId + "' not found"
-                    ));
-
-            if (!role.getCompany().getId().equals(companyId)) {
-                throw new ResourceNotFoundException(
-                        "Role with id '" + roleId
-                                + "' does not belong to company '"
-                                + companyId + "'"
-                );
-            }
-
-            roles.add(role);
-        }
-
-        return roles;
+        return roleIds.stream()
+                .map(roleId ->
+                        roleRepository.findByIdAndCompanyId(
+                                roleId,
+                                companyId
+                        ).orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Role with id '" + roleId + "' not found"
+                                )
+                        )
+                )
+                .collect(Collectors.toSet());
     }
 }
