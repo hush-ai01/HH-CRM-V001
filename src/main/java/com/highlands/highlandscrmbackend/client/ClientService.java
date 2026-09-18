@@ -3,6 +3,7 @@ package com.highlands.highlandscrmbackend.client;
 import com.highlands.highlandscrmbackend.company.Company;
 import com.highlands.highlandscrmbackend.company.CompanyRepository;
 import com.highlands.highlandscrmbackend.common.exception.ResourceNotFoundException;
+import com.highlands.highlandscrmbackend.security.AuthorizationService;
 import com.highlands.highlandscrmbackend.security.CurrentUserService;
 import com.highlands.highlandscrmbackend.security.TenantContext;
 import com.highlands.highlandscrmbackend.user.User;
@@ -10,9 +11,9 @@ import com.highlands.highlandscrmbackend.user.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
-import java.time.OffsetDateTime;
 
 @Service
 @Transactional
@@ -22,22 +23,28 @@ public class ClientService {
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
     private final CurrentUserService currentUserService;
+    private final AuthorizationService authorizationService;
 
     public ClientService(
             ClientRepository clientRepository,
             CompanyRepository companyRepository,
             UserRepository userRepository,
-            CurrentUserService currentUserService
+            CurrentUserService currentUserService,
+            AuthorizationService authorizationService
     ) {
         this.clientRepository = clientRepository;
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
         this.currentUserService = currentUserService;
+        this.authorizationService = authorizationService;
     }
 
     public ClientResponse createClient(CreateClientRequest request) {
 
         UUID companyId = TenantContext.requireCompanyId();
+
+        authorizationService.requirePermission("CLIENT_CREATE");
+
         UUID currentUserId = currentUserService.getCurrentUserId();
 
         Company company = companyRepository.findById(companyId)
@@ -113,6 +120,8 @@ public class ClientService {
 
         UUID companyId = TenantContext.requireCompanyId();
 
+        authorizationService.requirePermission("CLIENT_READ");
+
         return clientRepository
                 .findAllByCompanyId(companyId)
                 .stream()
@@ -124,6 +133,8 @@ public class ClientService {
     public ClientResponse getClientById(UUID clientId) {
 
         UUID companyId = TenantContext.requireCompanyId();
+
+        authorizationService.requirePermission("CLIENT_READ");
 
         Client client = clientRepository
                 .findByIdAndCompanyId(clientId, companyId)
@@ -142,6 +153,8 @@ public class ClientService {
     ) {
 
         UUID companyId = TenantContext.requireCompanyId();
+
+        authorizationService.requirePermission("CLIENT_UPDATE");
 
         Client client = clientRepository
                 .findByIdAndCompanyId(clientId, companyId)

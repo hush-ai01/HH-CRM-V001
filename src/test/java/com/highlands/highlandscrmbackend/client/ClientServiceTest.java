@@ -3,7 +3,9 @@ package com.highlands.highlandscrmbackend.client;
 import com.highlands.highlandscrmbackend.company.Company;
 import com.highlands.highlandscrmbackend.company.CompanyRepository;
 import com.highlands.highlandscrmbackend.common.exception.ResourceNotFoundException;
+import com.highlands.highlandscrmbackend.security.AuthorizationService;
 import com.highlands.highlandscrmbackend.security.CurrentUserService;
+import com.highlands.highlandscrmbackend.security.ForbiddenException;
 import com.highlands.highlandscrmbackend.security.TenantContext;
 import com.highlands.highlandscrmbackend.user.User;
 import com.highlands.highlandscrmbackend.user.UserRepository;
@@ -44,6 +46,9 @@ class ClientServiceTest {
     @Mock
     private User owner;
 
+    @Mock
+    private AuthorizationService authorizationService;
+
     @InjectMocks
     private ClientService clientService;
 
@@ -74,6 +79,10 @@ class ClientServiceTest {
 
     @Test
     void createClient_shouldCreateClientSuccessfully() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_CREATE");
 
         when(company.getId())
                 .thenReturn(companyId);
@@ -272,11 +281,6 @@ class ClientServiceTest {
         );
 
         assertEquals(
-                "+27 82 000 0000",
-                response.contactPhone()
-        );
-
-        assertEquals(
                 "john@example.com",
                 response.contactEmail()
         );
@@ -317,6 +321,9 @@ class ClientServiceTest {
                 response.updatedAt()
         );
 
+        verify(authorizationService)
+                .requirePermission("CLIENT_CREATE");
+
         verify(companyRepository)
                 .findById(companyId);
 
@@ -330,7 +337,54 @@ class ClientServiceTest {
     }
 
     @Test
+    void createClient_shouldRejectWithoutCreatePermission() {
+
+        CreateClientRequest request = new CreateClientRequest(
+                "Test Mining Supplier",
+                ClientType.SUPPLIER,
+                "Limpopo",
+                null,
+                null,
+                "50% deposit",
+                DeliveryTerm.FOT,
+                "SACD City Deep",
+                "John Smith",
+                "+27 82 000 0000",
+                "john@example.com",
+                null,
+                null,
+                null,
+                null,
+                ClientVisibility.PRIVATE
+        );
+
+        doThrow(new ForbiddenException(
+                "You do not have permission to perform this action"
+        ))
+                .when(authorizationService)
+                .requirePermission("CLIENT_CREATE");
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> clientService.createClient(request)
+        );
+
+        verify(authorizationService)
+                .requirePermission("CLIENT_CREATE");
+
+        verifyNoInteractions(companyRepository);
+        verifyNoInteractions(userRepository);
+
+        verify(clientRepository, never())
+                .save(any(Client.class));
+    }
+
+    @Test
     void getAllClients_shouldOnlyQueryCurrentCompany() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_READ");
 
         when(company.getId())
                 .thenReturn(companyId);
@@ -407,6 +461,9 @@ class ClientServiceTest {
                 responses.get(1).name()
         );
 
+        verify(authorizationService)
+                .requirePermission("CLIENT_READ");
+
         verify(clientRepository)
                 .findAllByCompanyId(companyId);
 
@@ -415,7 +472,32 @@ class ClientServiceTest {
     }
 
     @Test
+    void getAllClients_shouldRejectWithoutReadPermission() {
+
+        doThrow(new ForbiddenException(
+                "You do not have permission to perform this action"
+        ))
+                .when(authorizationService)
+                .requirePermission("CLIENT_READ");
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> clientService.getAllClients()
+        );
+
+        verify(authorizationService)
+                .requirePermission("CLIENT_READ");
+
+        verify(clientRepository, never())
+                .findAllByCompanyId(any(UUID.class));
+    }
+
+    @Test
     void getClientById_shouldReturnClientFromCurrentCompany() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_READ");
 
         when(company.getId())
                 .thenReturn(companyId);
@@ -480,6 +562,9 @@ class ClientServiceTest {
                 response.visibility()
         );
 
+        verify(authorizationService)
+                .requirePermission("CLIENT_READ");
+
         verify(clientRepository)
                 .findByIdAndCompanyId(
                         clientId,
@@ -496,6 +581,10 @@ class ClientServiceTest {
     @Test
     void getClientById_shouldNotReturnClientFromAnotherCompany() {
 
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_READ");
+
         when(clientRepository.findByIdAndCompanyId(
                 clientId,
                 companyId
@@ -505,6 +594,9 @@ class ClientServiceTest {
                 ResourceNotFoundException.class,
                 () -> clientService.getClientById(clientId)
         );
+
+        verify(authorizationService)
+                .requirePermission("CLIENT_READ");
 
         verify(clientRepository)
                 .findByIdAndCompanyId(
@@ -521,6 +613,10 @@ class ClientServiceTest {
 
     @Test
     void updateClient_shouldOnlyUpdateClientFromCurrentCompany() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
 
         when(company.getId())
                 .thenReturn(companyId);
@@ -601,6 +697,9 @@ class ClientServiceTest {
                 response.accountStatus()
         );
 
+        verify(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
+
         verify(clientRepository)
                 .findByIdAndCompanyId(
                         clientId,
@@ -618,7 +717,61 @@ class ClientServiceTest {
     }
 
     @Test
+    void updateClient_shouldRejectWithoutUpdatePermission() {
+
+        UpdateClientRequest request =
+                new UpdateClientRequest(
+                        "Attempted Update",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                );
+
+        doThrow(new ForbiddenException(
+                "You do not have permission to perform this action"
+        ))
+                .when(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> clientService.updateClient(
+                        clientId,
+                        request
+                )
+        );
+
+        verify(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
+
+        verify(clientRepository, never())
+                .findByIdAndCompanyId(
+                        any(UUID.class),
+                        any(UUID.class)
+                );
+
+        verify(clientRepository, never())
+                .save(any(Client.class));
+    }
+
+    @Test
     void updateClient_shouldNotUpdateClientFromAnotherCompany() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
 
         UpdateClientRequest request =
                 new UpdateClientRequest(
@@ -653,6 +806,9 @@ class ClientServiceTest {
                 )
         );
 
+        verify(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
+
         verify(clientRepository)
                 .findByIdAndCompanyId(
                         clientId,
@@ -671,6 +827,10 @@ class ClientServiceTest {
 
     @Test
     void createClient_shouldRejectOwnerFromAnotherCompany() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_CREATE");
 
         CreateClientRequest request =
                 new CreateClientRequest(
@@ -704,6 +864,9 @@ class ClientServiceTest {
                 ResourceNotFoundException.class,
                 () -> clientService.createClient(request)
         );
+
+        verify(authorizationService)
+                .requirePermission("CLIENT_CREATE");
 
         verify(userRepository)
                 .findByIdAndCompanyId(

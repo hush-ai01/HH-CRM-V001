@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.highlands.highlandscrmbackend.security.ForbiddenException;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -99,6 +100,16 @@ public class GlobalExceptionHandler {
 
         return buildResponse(
                 HttpStatus.UNAUTHORIZED,
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleForbidden(
+            ForbiddenException exception) {
+
+        return buildResponse(
+                HttpStatus.FORBIDDEN,
                 exception.getMessage()
         );
     }
