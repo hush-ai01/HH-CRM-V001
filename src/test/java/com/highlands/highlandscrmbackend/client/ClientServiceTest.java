@@ -2,8 +2,10 @@ package com.highlands.highlandscrmbackend.client;
 
 import com.highlands.highlandscrmbackend.company.Company;
 import com.highlands.highlandscrmbackend.company.CompanyRepository;
+import com.highlands.highlandscrmbackend.common.exception.ResourceNotFoundException;
 import com.highlands.highlandscrmbackend.security.CurrentUserService;
 import com.highlands.highlandscrmbackend.security.TenantContext;
+import com.highlands.highlandscrmbackend.user.User;
 import com.highlands.highlandscrmbackend.user.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,25 +41,30 @@ class ClientServiceTest {
     @Mock
     private Company company;
 
+    @Mock
+    private User owner;
+
     @InjectMocks
     private ClientService clientService;
 
     private UUID companyId;
+    private UUID anotherCompanyId;
     private UUID userId;
+    private UUID anotherUserId;
+    private UUID clientId;
 
     @BeforeEach
     void setUp() {
 
         companyId = UUID.randomUUID();
-        userId = UUID.randomUUID();
+        anotherCompanyId = UUID.randomUUID();
 
-        when(company.getId())
-                .thenReturn(companyId);
+        userId = UUID.randomUUID();
+        anotherUserId = UUID.randomUUID();
+
+        clientId = UUID.randomUUID();
 
         TenantContext.setCompanyId(companyId);
-
-        when(currentUserService.getCurrentUserId())
-                .thenReturn(userId);
     }
 
     @AfterEach
@@ -66,6 +74,12 @@ class ClientServiceTest {
 
     @Test
     void createClient_shouldCreateClientSuccessfully() {
+
+        when(company.getId())
+                .thenReturn(companyId);
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
 
         CreateClientRequest request = new CreateClientRequest(
                 "Test Mining Supplier",
@@ -103,17 +117,16 @@ class ClientServiceTest {
         verify(clientRepository)
                 .save(clientCaptor.capture());
 
-        Client savedClient = clientCaptor.getValue();
+        Client savedClient =
+                clientCaptor.getValue();
 
         assertNotNull(savedClient);
 
-        // Company
         assertEquals(
                 company,
                 savedClient.getCompany()
         );
 
-        // Basic client information
         assertEquals(
                 "Test Mining Supplier",
                 savedClient.getName()
@@ -129,7 +142,6 @@ class ClientServiceTest {
                 savedClient.getArea()
         );
 
-        // Quantities
         assertNull(
                 savedClient.getMonthlyQuantity()
         );
@@ -138,7 +150,6 @@ class ClientServiceTest {
                 savedClient.getWeeklyQuantity()
         );
 
-        // Commercial information
         assertEquals(
                 "50% deposit, balance on POD",
                 savedClient.getPaymentTerms()
@@ -154,7 +165,6 @@ class ClientServiceTest {
                 savedClient.getWarehouse()
         );
 
-        // Contact information
         assertEquals(
                 "John Smith",
                 savedClient.getContactName()
@@ -170,19 +180,16 @@ class ClientServiceTest {
                 savedClient.getContactEmail()
         );
 
-        // Default account status
         assertEquals(
                 AccountStatus.PROSPECT,
                 savedClient.getAccountStatus()
         );
 
-        // Default visibility supplied by request
         assertEquals(
                 ClientVisibility.PRIVATE,
                 savedClient.getVisibility()
         );
 
-        // Ownership/provenance
         assertEquals(
                 userId,
                 savedClient.getCreatedByUserId()
@@ -197,12 +204,10 @@ class ClientServiceTest {
                 savedClient.getOwner()
         );
 
-        // Lead provenance
         assertNull(
                 savedClient.getSourceLeadId()
         );
 
-        // Next action
         assertNull(
                 savedClient.getNextAction()
         );
@@ -211,7 +216,6 @@ class ClientServiceTest {
                 savedClient.getNextActionAt()
         );
 
-        // Audit timestamps
         assertNotNull(
                 savedClient.getCreatedAt()
         );
@@ -220,7 +224,6 @@ class ClientServiceTest {
                 savedClient.getUpdatedAt()
         );
 
-        // Response
         assertNotNull(response);
 
         assertEquals(
@@ -269,6 +272,11 @@ class ClientServiceTest {
         );
 
         assertEquals(
+                "+27 82 000 0000",
+                response.contactPhone()
+        );
+
+        assertEquals(
                 "john@example.com",
                 response.contactEmail()
         );
@@ -309,19 +317,401 @@ class ClientServiceTest {
                 response.updatedAt()
         );
 
-        // Verify tenant was used correctly
         verify(companyRepository)
                 .findById(companyId);
 
-        // Verify current authenticated user was used
         verify(currentUserService)
                 .getCurrentUserId();
 
-        // Verify client was persisted
         verify(clientRepository)
                 .save(any(Client.class));
 
-        // No owner lookup should occur because ownerUserId was null
         verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void getAllClients_shouldOnlyQueryCurrentCompany() {
+
+        when(company.getId())
+                .thenReturn(companyId);
+
+        Client clientOne = mock(Client.class);
+        Client clientTwo = mock(Client.class);
+
+        when(clientOne.getId())
+                .thenReturn(UUID.randomUUID());
+
+        when(clientOne.getCompany())
+                .thenReturn(company);
+
+        when(clientOne.getName())
+                .thenReturn("Company A Client");
+
+        when(clientOne.getType())
+                .thenReturn(ClientType.SUPPLIER);
+
+        when(clientOne.getAccountStatus())
+                .thenReturn(AccountStatus.ACTIVE);
+
+        when(clientOne.getVisibility())
+                .thenReturn(ClientVisibility.PRIVATE);
+
+        when(clientTwo.getId())
+                .thenReturn(UUID.randomUUID());
+
+        when(clientTwo.getCompany())
+                .thenReturn(company);
+
+        when(clientTwo.getName())
+                .thenReturn("Company A Buyer");
+
+        when(clientTwo.getType())
+                .thenReturn(ClientType.BUYER);
+
+        when(clientTwo.getAccountStatus())
+                .thenReturn(AccountStatus.PROSPECT);
+
+        when(clientTwo.getVisibility())
+                .thenReturn(ClientVisibility.MANAGEMENT);
+
+        when(clientRepository.findAllByCompanyId(companyId))
+                .thenReturn(List.of(clientOne, clientTwo));
+
+        List<ClientResponse> responses =
+                clientService.getAllClients();
+
+        assertNotNull(responses);
+
+        assertEquals(
+                2,
+                responses.size()
+        );
+
+        assertEquals(
+                companyId,
+                responses.get(0).companyId()
+        );
+
+        assertEquals(
+                companyId,
+                responses.get(1).companyId()
+        );
+
+        assertEquals(
+                "Company A Client",
+                responses.get(0).name()
+        );
+
+        assertEquals(
+                "Company A Buyer",
+                responses.get(1).name()
+        );
+
+        verify(clientRepository)
+                .findAllByCompanyId(companyId);
+
+        verify(clientRepository, never())
+                .findAllByCompanyId(anotherCompanyId);
+    }
+
+    @Test
+    void getClientById_shouldReturnClientFromCurrentCompany() {
+
+        when(company.getId())
+                .thenReturn(companyId);
+
+        Client client = mock(Client.class);
+
+        when(client.getId())
+                .thenReturn(clientId);
+
+        when(client.getCompany())
+                .thenReturn(company);
+
+        when(client.getName())
+                .thenReturn("Company A Client");
+
+        when(client.getType())
+                .thenReturn(ClientType.SUPPLIER);
+
+        when(client.getAccountStatus())
+                .thenReturn(AccountStatus.ACTIVE);
+
+        when(client.getVisibility())
+                .thenReturn(ClientVisibility.PRIVATE);
+
+        when(clientRepository.findByIdAndCompanyId(
+                clientId,
+                companyId
+        )).thenReturn(Optional.of(client));
+
+        ClientResponse response =
+                clientService.getClientById(clientId);
+
+        assertNotNull(response);
+
+        assertEquals(
+                clientId,
+                response.id()
+        );
+
+        assertEquals(
+                companyId,
+                response.companyId()
+        );
+
+        assertEquals(
+                "Company A Client",
+                response.name()
+        );
+
+        assertEquals(
+                ClientType.SUPPLIER,
+                response.type()
+        );
+
+        assertEquals(
+                AccountStatus.ACTIVE,
+                response.accountStatus()
+        );
+
+        assertEquals(
+                ClientVisibility.PRIVATE,
+                response.visibility()
+        );
+
+        verify(clientRepository)
+                .findByIdAndCompanyId(
+                        clientId,
+                        companyId
+                );
+
+        verify(clientRepository, never())
+                .findByIdAndCompanyId(
+                        clientId,
+                        anotherCompanyId
+                );
+    }
+
+    @Test
+    void getClientById_shouldNotReturnClientFromAnotherCompany() {
+
+        when(clientRepository.findByIdAndCompanyId(
+                clientId,
+                companyId
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> clientService.getClientById(clientId)
+        );
+
+        verify(clientRepository)
+                .findByIdAndCompanyId(
+                        clientId,
+                        companyId
+                );
+
+        verify(clientRepository, never())
+                .findByIdAndCompanyId(
+                        clientId,
+                        anotherCompanyId
+                );
+    }
+
+    @Test
+    void updateClient_shouldOnlyUpdateClientFromCurrentCompany() {
+
+        when(company.getId())
+                .thenReturn(companyId);
+
+        Client client = mock(Client.class);
+
+        when(client.getId())
+                .thenReturn(clientId);
+
+        when(client.getCompany())
+                .thenReturn(company);
+
+        when(client.getName())
+                .thenReturn("Updated Mining Supplier");
+
+        when(client.getType())
+                .thenReturn(ClientType.SUPPLIER);
+
+        when(client.getAccountStatus())
+                .thenReturn(AccountStatus.ACTIVE);
+
+        when(client.getVisibility())
+                .thenReturn(ClientVisibility.PRIVATE);
+
+        when(clientRepository.findByIdAndCompanyId(
+                clientId,
+                companyId
+        )).thenReturn(Optional.of(client));
+
+        when(clientRepository.save(client))
+                .thenReturn(client);
+
+        UpdateClientRequest request =
+                new UpdateClientRequest(
+                        "Updated Mining Supplier",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        AccountStatus.ACTIVE,
+                        null,
+                        null,
+                        null,
+                        null
+                );
+
+        ClientResponse response =
+                clientService.updateClient(
+                        clientId,
+                        request
+                );
+
+        assertNotNull(response);
+
+        assertEquals(
+                clientId,
+                response.id()
+        );
+
+        assertEquals(
+                companyId,
+                response.companyId()
+        );
+
+        assertEquals(
+                "Updated Mining Supplier",
+                response.name()
+        );
+
+        assertEquals(
+                AccountStatus.ACTIVE,
+                response.accountStatus()
+        );
+
+        verify(clientRepository)
+                .findByIdAndCompanyId(
+                        clientId,
+                        companyId
+                );
+
+        verify(clientRepository)
+                .save(client);
+
+        verify(client)
+                .setName("Updated Mining Supplier");
+
+        verify(client)
+                .setAccountStatus(AccountStatus.ACTIVE);
+    }
+
+    @Test
+    void updateClient_shouldNotUpdateClientFromAnotherCompany() {
+
+        UpdateClientRequest request =
+                new UpdateClientRequest(
+                        "Attempted Cross Tenant Update",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                );
+
+        when(clientRepository.findByIdAndCompanyId(
+                clientId,
+                companyId
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> clientService.updateClient(
+                        clientId,
+                        request
+                )
+        );
+
+        verify(clientRepository)
+                .findByIdAndCompanyId(
+                        clientId,
+                        companyId
+                );
+
+        verify(clientRepository, never())
+                .save(any(Client.class));
+
+        verify(clientRepository, never())
+                .findByIdAndCompanyId(
+                        clientId,
+                        anotherCompanyId
+                );
+    }
+
+    @Test
+    void createClient_shouldRejectOwnerFromAnotherCompany() {
+
+        CreateClientRequest request =
+                new CreateClientRequest(
+                        "Test Mining Supplier",
+                        ClientType.SUPPLIER,
+                        "Limpopo",
+                        null,
+                        null,
+                        "50% deposit",
+                        DeliveryTerm.FOT,
+                        "SACD City Deep",
+                        "John Smith",
+                        "+27 82 000 0000",
+                        "john@example.com",
+                        null,
+                        null,
+                        null,
+                        anotherUserId,
+                        ClientVisibility.PRIVATE
+                );
+
+        when(companyRepository.findById(companyId))
+                .thenReturn(Optional.of(company));
+
+        when(userRepository.findByIdAndCompanyId(
+                anotherUserId,
+                companyId
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> clientService.createClient(request)
+        );
+
+        verify(userRepository)
+                .findByIdAndCompanyId(
+                        anotherUserId,
+                        companyId
+                );
+
+        verify(clientRepository, never())
+                .save(any(Client.class));
     }
 }
