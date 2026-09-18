@@ -1,11 +1,12 @@
 package com.highlands.highlandscrmbackend.role;
 
 import com.highlands.highlandscrmbackend.common.exception.ResourceNotFoundException;
+import com.highlands.highlandscrmbackend.common.exception.RoleAlreadyExistsException;
 import com.highlands.highlandscrmbackend.company.Company;
 import com.highlands.highlandscrmbackend.company.CompanyRepository;
+import com.highlands.highlandscrmbackend.security.TenantContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.highlands.highlandscrmbackend.common.exception.RoleAlreadyExistsException;
 
 import java.util.List;
 import java.util.UUID;
@@ -27,13 +28,15 @@ public class RoleService {
 
     public RoleResponse createRole(RoleCreateRequest request) {
 
-        Company company = companyRepository.findById(request.companyId())
+        UUID companyId = TenantContext.requireCompanyId();
+
+        Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Company with id '" + request.companyId() + "' not found"
+                        "Company with id '" + companyId + "' not found"
                 ));
 
         if (roleRepository.existsByCompanyIdAndName(
-                request.companyId(),
+                companyId,
                 request.name()
         )) {
             throw new RoleAlreadyExistsException(
@@ -54,13 +57,9 @@ public class RoleService {
     }
 
     @Transactional(readOnly = true)
-    public List<RoleResponse> getRolesByCompany(UUID companyId) {
+    public List<RoleResponse> getRolesByCompany() {
 
-        if (!companyRepository.existsById(companyId)) {
-            throw new ResourceNotFoundException(
-                    "Company with id '" + companyId + "' not found"
-            );
-        }
+        UUID companyId = TenantContext.requireCompanyId();
 
         return roleRepository.findAllByCompanyId(companyId)
                 .stream()
@@ -71,7 +70,12 @@ public class RoleService {
     @Transactional(readOnly = true)
     public RoleResponse getRoleById(UUID id) {
 
-        Role role = roleRepository.findById(id)
+        UUID companyId = TenantContext.requireCompanyId();
+
+        Role role = roleRepository.findByIdAndCompanyId(
+                        id,
+                        companyId
+                )
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Role with id '" + id + "' not found"
                 ));

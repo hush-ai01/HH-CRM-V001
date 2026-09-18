@@ -29,12 +29,11 @@ public class RoleController {
                 .body(response);
     }
 
-    @GetMapping("/company/{companyId}")
-    public ResponseEntity<List<RoleResponse>> getRolesByCompany(
-            @PathVariable UUID companyId) {
+    @GetMapping
+    public ResponseEntity<List<RoleResponse>> getRoles() {
 
         return ResponseEntity.ok(
-                roleService.getRolesByCompany(companyId)
+                roleService.getRolesByCompany()
         );
     }
 

@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -31,13 +33,19 @@ class RoleControllerTest {
 
     @BeforeEach
     void setUp() {
-        RoleController roleController = new RoleController(roleService);
+
+        RoleController roleController =
+                new RoleController(roleService);
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(roleController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
+
+    // -------------------------------------------------------------------------
+    // CREATE ROLE
+    // -------------------------------------------------------------------------
 
     @Test
     void shouldCreateRole() throws Exception {
@@ -66,20 +74,33 @@ class RoleControllerTest {
                 }
                 """.formatted(companyId);
 
-        mockMvc.perform(post("/roles")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+        mockMvc.perform(
+                        post("/roles")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(roleId.toString()))
-                .andExpect(jsonPath("$.companyId").value(companyId.toString()))
-                .andExpect(jsonPath("$.name").value("ADMIN"))
+                .andExpect(jsonPath("$.id")
+                        .value(roleId.toString()))
+                .andExpect(jsonPath("$.companyId")
+                        .value(companyId.toString()))
+                .andExpect(jsonPath("$.name")
+                        .value("ADMIN"))
                 .andExpect(jsonPath("$.description")
                         .value("Full system administrator"))
-                .andExpect(jsonPath("$.active").value(true));
+                .andExpect(jsonPath("$.active")
+                        .value(true));
+
+        verify(roleService)
+                .createRole(any(RoleCreateRequest.class));
     }
 
+    // -------------------------------------------------------------------------
+    // GET ROLES
+    // -------------------------------------------------------------------------
+
     @Test
-    void shouldGetRolesByCompany() throws Exception {
+    void shouldGetRolesForCurrentTenant() throws Exception {
 
         UUID companyId = UUID.randomUUID();
 
@@ -103,17 +124,27 @@ class RoleControllerTest {
                 null
         );
 
-        when(roleService.getRolesByCompany(companyId))
+        when(roleService.getRolesByCompany())
                 .thenReturn(List.of(admin, manager));
 
         mockMvc.perform(
-                        get("/roles/company/{companyId}", companyId)
+                        get("/roles")
                 )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].name").value("ADMIN"))
-                .andExpect(jsonPath("$[1].name").value("MANAGER"));
+                .andExpect(jsonPath("$.length()")
+                        .value(2))
+                .andExpect(jsonPath("$[0].name")
+                        .value("ADMIN"))
+                .andExpect(jsonPath("$[1].name")
+                        .value("MANAGER"));
+
+        verify(roleService)
+                .getRolesByCompany();
     }
+
+    // -------------------------------------------------------------------------
+    // GET ROLE BY ID
+    // -------------------------------------------------------------------------
 
     @Test
     void shouldGetRoleById() throws Exception {
@@ -138,9 +169,20 @@ class RoleControllerTest {
                         get("/roles/{id}", roleId)
                 )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(roleId.toString()))
-                .andExpect(jsonPath("$.name").value("ADMIN"));
+                .andExpect(jsonPath("$.id")
+                        .value(roleId.toString()))
+                .andExpect(jsonPath("$.companyId")
+                        .value(companyId.toString()))
+                .andExpect(jsonPath("$.name")
+                        .value("ADMIN"));
+
+        verify(roleService)
+                .getRoleById(roleId);
     }
+
+    // -------------------------------------------------------------------------
+    // VALIDATION
+    // -------------------------------------------------------------------------
 
     @Test
     void shouldReturnBadRequestWhenCreatingRoleWithInvalidBody()
@@ -154,11 +196,19 @@ class RoleControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/roles")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+        mockMvc.perform(
+                        post("/roles")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(roleService);
     }
+
+    // -------------------------------------------------------------------------
+    // NOT FOUND
+    // -------------------------------------------------------------------------
 
     @Test
     void shouldReturnNotFoundWhenRoleDoesNotExist()
@@ -167,23 +217,60 @@ class RoleControllerTest {
         UUID roleId = UUID.randomUUID();
 
         when(roleService.getRoleById(roleId))
-                .thenThrow(new ResourceNotFoundException(
-                        "Role with id '" + roleId + "' not found"
-                ));
+                .thenThrow(
+                        new ResourceNotFoundException(
+                                "Role with id '" +
+                                        roleId +
+                                        "' not found"
+                        )
+                );
 
         mockMvc.perform(
                         get("/roles/{id}", roleId)
                 )
                 .andExpect(status().isNotFound());
+
+        verify(roleService)
+                .getRoleById(roleId);
     }
+
+    // -------------------------------------------------------------------------
+    // INVALID UUID
+    // -------------------------------------------------------------------------
 
     @Test
     void shouldReturnBadRequestForMalformedUuid()
             throws Exception {
 
         mockMvc.perform(
-                        get("/roles/{id}", "not-a-valid-uuid")
+                        get(
+                                "/roles/{id}",
+                                "not-a-valid-uuid"
+                        )
                 )
                 .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(roleService);
+    }
+
+    // -------------------------------------------------------------------------
+    // OLD COMPANY-SCOPED ENDPOINT
+    // -------------------------------------------------------------------------
+
+    @Test
+    void shouldNotExposeCompanyIdBasedRoleEndpoint()
+            throws Exception {
+
+        UUID companyId = UUID.randomUUID();
+
+        mockMvc.perform(
+                        get(
+                                "/roles/company/{companyId}",
+                                companyId
+                        )
+                )
+                .andExpect(status().isNotFound());
+
+        verifyNoInteractions(roleService);
     }
 }
