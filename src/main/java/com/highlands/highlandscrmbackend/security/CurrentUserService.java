@@ -38,4 +38,23 @@ public class CurrentUserService {
     public String getCurrentUserEmail() {
         return getCurrentUser().email();
     }
+
+    public boolean isManagementUser() {
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        if (authentication == null) {
+            return false;
+        }
+
+        return authentication.getAuthorities()
+                .stream()
+                .anyMatch(authority ->
+                        "ROLE_management".equals(
+                                authority.getAuthority()
+                        )
+                );
+    }
 }

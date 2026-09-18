@@ -122,8 +122,15 @@ public class ClientService {
 
         authorizationService.requirePermission("CLIENT_READ");
 
+        UUID currentUserId = currentUserService.getCurrentUserId();
+        boolean managementUser = currentUserService.isManagementUser();
+
         return clientRepository
-                .findAllByCompanyId(companyId)
+                .findAllVisibleToUser(
+                        companyId,
+                        currentUserId,
+                        managementUser
+                )
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -136,8 +143,16 @@ public class ClientService {
 
         authorizationService.requirePermission("CLIENT_READ");
 
+        UUID currentUserId = currentUserService.getCurrentUserId();
+        boolean managementUser = currentUserService.isManagementUser();
+
         Client client = clientRepository
-                .findByIdAndCompanyId(clientId, companyId)
+                .findVisibleById(
+                        clientId,
+                        companyId,
+                        currentUserId,
+                        managementUser
+                )
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Client with id '" + clientId + "' not found"
@@ -156,8 +171,16 @@ public class ClientService {
 
         authorizationService.requirePermission("CLIENT_UPDATE");
 
+        UUID currentUserId = currentUserService.getCurrentUserId();
+        boolean managementUser = currentUserService.isManagementUser();
+
         Client client = clientRepository
-                .findByIdAndCompanyId(clientId, companyId)
+                .findVisibleById(
+                        clientId,
+                        companyId,
+                        currentUserId,
+                        managementUser
+                )
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Client with id '" + clientId + "' not found"

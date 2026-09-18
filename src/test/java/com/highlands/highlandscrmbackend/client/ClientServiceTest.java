@@ -77,6 +77,10 @@ class ClientServiceTest {
         TenantContext.clear();
     }
 
+    // =========================================================================
+    // CREATE CLIENT
+    // =========================================================================
+
     @Test
     void createClient_shouldCreateClientSuccessfully() {
 
@@ -380,11 +384,77 @@ class ClientServiceTest {
     }
 
     @Test
-    void getAllClients_shouldOnlyQueryCurrentCompany() {
+    void createClient_shouldRejectOwnerFromAnotherCompany() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_CREATE");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        CreateClientRequest request =
+                new CreateClientRequest(
+                        "Test Mining Supplier",
+                        ClientType.SUPPLIER,
+                        "Limpopo",
+                        null,
+                        null,
+                        "50% deposit",
+                        DeliveryTerm.FOT,
+                        "SACD City Deep",
+                        "John Smith",
+                        "+27 82 000 0000",
+                        "john@example.com",
+                        null,
+                        null,
+                        null,
+                        anotherUserId,
+                        ClientVisibility.PRIVATE
+                );
+
+        when(companyRepository.findById(companyId))
+                .thenReturn(Optional.of(company));
+
+        when(userRepository.findByIdAndCompanyId(
+                anotherUserId,
+                companyId
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> clientService.createClient(request)
+        );
+
+        verify(authorizationService)
+                .requirePermission("CLIENT_CREATE");
+
+        verify(userRepository)
+                .findByIdAndCompanyId(
+                        anotherUserId,
+                        companyId
+                );
+
+        verify(clientRepository, never())
+                .save(any(Client.class));
+    }
+
+    // =========================================================================
+    // GET ALL CLIENTS
+    // =========================================================================
+
+    @Test
+    void getAllClients_shouldQueryVisibleClientsForCurrentUser() {
 
         doNothing()
                 .when(authorizationService)
                 .requirePermission("CLIENT_READ");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(false);
 
         when(company.getId())
                 .thenReturn(companyId);
@@ -428,8 +498,11 @@ class ClientServiceTest {
         when(clientTwo.getVisibility())
                 .thenReturn(ClientVisibility.MANAGEMENT);
 
-        when(clientRepository.findAllByCompanyId(companyId))
-                .thenReturn(List.of(clientOne, clientTwo));
+        when(clientRepository.findAllVisibleToUser(
+                companyId,
+                userId,
+                false
+        )).thenReturn(List.of(clientOne, clientTwo));
 
         List<ClientResponse> responses =
                 clientService.getAllClients();
@@ -464,11 +537,54 @@ class ClientServiceTest {
         verify(authorizationService)
                 .requirePermission("CLIENT_READ");
 
+        verify(currentUserService)
+                .getCurrentUserId();
+
+        verify(currentUserService)
+                .isManagementUser();
+
         verify(clientRepository)
-                .findAllByCompanyId(companyId);
+                .findAllVisibleToUser(
+                        companyId,
+                        userId,
+                        false
+                );
 
         verify(clientRepository, never())
-                .findAllByCompanyId(anotherCompanyId);
+                .findAllByCompanyId(any(UUID.class));
+    }
+
+    @Test
+    void getAllClients_shouldPassManagementFlagForManagementUser() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_READ");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(true);
+
+        when(clientRepository.findAllVisibleToUser(
+                companyId,
+                userId,
+                true
+        )).thenReturn(List.of());
+
+        List<ClientResponse> responses =
+                clientService.getAllClients();
+
+        assertNotNull(responses);
+        assertTrue(responses.isEmpty());
+
+        verify(clientRepository)
+                .findAllVisibleToUser(
+                        companyId,
+                        userId,
+                        true
+                );
     }
 
     @Test
@@ -488,16 +604,27 @@ class ClientServiceTest {
         verify(authorizationService)
                 .requirePermission("CLIENT_READ");
 
-        verify(clientRepository, never())
-                .findAllByCompanyId(any(UUID.class));
+        verifyNoInteractions(clientRepository);
+
+        verifyNoInteractions(currentUserService);
     }
 
+    // =========================================================================
+    // GET CLIENT BY ID
+    // =========================================================================
+
     @Test
-    void getClientById_shouldReturnClientFromCurrentCompany() {
+    void getClientById_shouldReturnVisibleClientFromCurrentCompany() {
 
         doNothing()
                 .when(authorizationService)
                 .requirePermission("CLIENT_READ");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(false);
 
         when(company.getId())
                 .thenReturn(companyId);
@@ -522,9 +649,11 @@ class ClientServiceTest {
         when(client.getVisibility())
                 .thenReturn(ClientVisibility.PRIVATE);
 
-        when(clientRepository.findByIdAndCompanyId(
+        when(clientRepository.findVisibleById(
                 clientId,
-                companyId
+                companyId,
+                userId,
+                false
         )).thenReturn(Optional.of(client));
 
         ClientResponse response =
@@ -565,58 +694,181 @@ class ClientServiceTest {
         verify(authorizationService)
                 .requirePermission("CLIENT_READ");
 
+        verify(currentUserService)
+                .getCurrentUserId();
+
+        verify(currentUserService)
+                .isManagementUser();
+
         verify(clientRepository)
-                .findByIdAndCompanyId(
+                .findVisibleById(
                         clientId,
-                        companyId
+                        companyId,
+                        userId,
+                        false
                 );
 
         verify(clientRepository, never())
                 .findByIdAndCompanyId(
-                        clientId,
-                        anotherCompanyId
+                        any(UUID.class),
+                        any(UUID.class)
                 );
     }
 
     @Test
-    void getClientById_shouldNotReturnClientFromAnotherCompany() {
+    void getClientById_shouldRejectClientNotVisibleToUser() {
 
         doNothing()
                 .when(authorizationService)
                 .requirePermission("CLIENT_READ");
 
-        when(clientRepository.findByIdAndCompanyId(
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(false);
+
+        when(clientRepository.findVisibleById(
                 clientId,
-                companyId
+                companyId,
+                userId,
+                false
         )).thenReturn(Optional.empty());
 
-        assertThrows(
-                ResourceNotFoundException.class,
-                () -> clientService.getClientById(clientId)
+        ResourceNotFoundException exception =
+                assertThrows(
+                        ResourceNotFoundException.class,
+                        () -> clientService.getClientById(clientId)
+                );
+
+        assertEquals(
+                "Client with id '" + clientId + "' not found",
+                exception.getMessage()
         );
 
         verify(authorizationService)
                 .requirePermission("CLIENT_READ");
 
         verify(clientRepository)
-                .findByIdAndCompanyId(
+                .findVisibleById(
                         clientId,
-                        companyId
+                        companyId,
+                        userId,
+                        false
                 );
 
         verify(clientRepository, never())
                 .findByIdAndCompanyId(
-                        clientId,
-                        anotherCompanyId
+                        any(UUID.class),
+                        any(UUID.class)
                 );
     }
 
     @Test
-    void updateClient_shouldOnlyUpdateClientFromCurrentCompany() {
+    void getClientById_shouldUseManagementVisibilityForManagementUser() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_READ");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(true);
+
+        Client client = mock(Client.class);
+
+        when(client.getId())
+                .thenReturn(clientId);
+
+        when(client.getCompany())
+                .thenReturn(company);
+
+        when(company.getId())
+                .thenReturn(companyId);
+
+        when(client.getName())
+                .thenReturn("Management Client");
+
+        when(client.getType())
+                .thenReturn(ClientType.BUYER);
+
+        when(client.getAccountStatus())
+                .thenReturn(AccountStatus.ACTIVE);
+
+        when(client.getVisibility())
+                .thenReturn(ClientVisibility.MANAGEMENT);
+
+        when(clientRepository.findVisibleById(
+                clientId,
+                companyId,
+                userId,
+                true
+        )).thenReturn(Optional.of(client));
+
+        ClientResponse response =
+                clientService.getClientById(clientId);
+
+        assertNotNull(response);
+
+        assertEquals(
+                clientId,
+                response.id()
+        );
+
+        assertEquals(
+                ClientVisibility.MANAGEMENT,
+                response.visibility()
+        );
+
+        verify(clientRepository)
+                .findVisibleById(
+                        clientId,
+                        companyId,
+                        userId,
+                        true
+                );
+    }
+
+    @Test
+    void getClientById_shouldRejectWithoutReadPermission() {
+
+        doThrow(new ForbiddenException(
+                "You do not have permission to perform this action"
+        ))
+                .when(authorizationService)
+                .requirePermission("CLIENT_READ");
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> clientService.getClientById(clientId)
+        );
+
+        verify(authorizationService)
+                .requirePermission("CLIENT_READ");
+
+        verifyNoInteractions(clientRepository);
+
+        verifyNoInteractions(currentUserService);
+    }
+
+    // =========================================================================
+    // UPDATE CLIENT
+    // =========================================================================
+
+    @Test
+    void updateClient_shouldUpdateVisibleClientFromCurrentCompany() {
 
         doNothing()
                 .when(authorizationService)
                 .requirePermission("CLIENT_UPDATE");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(false);
 
         when(company.getId())
                 .thenReturn(companyId);
@@ -641,9 +893,11 @@ class ClientServiceTest {
         when(client.getVisibility())
                 .thenReturn(ClientVisibility.PRIVATE);
 
-        when(clientRepository.findByIdAndCompanyId(
+        when(clientRepository.findVisibleById(
                 clientId,
-                companyId
+                companyId,
+                userId,
+                false
         )).thenReturn(Optional.of(client));
 
         when(clientRepository.save(client))
@@ -700,10 +954,18 @@ class ClientServiceTest {
         verify(authorizationService)
                 .requirePermission("CLIENT_UPDATE");
 
+        verify(currentUserService)
+                .getCurrentUserId();
+
+        verify(currentUserService)
+                .isManagementUser();
+
         verify(clientRepository)
-                .findByIdAndCompanyId(
+                .findVisibleById(
                         clientId,
-                        companyId
+                        companyId,
+                        userId,
+                        false
                 );
 
         verify(clientRepository)
@@ -714,6 +976,158 @@ class ClientServiceTest {
 
         verify(client)
                 .setAccountStatus(AccountStatus.ACTIVE);
+    }
+
+    @Test
+    void updateClient_shouldRejectClientNotVisibleToUser() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(false);
+
+        UpdateClientRequest request =
+                new UpdateClientRequest(
+                        "Attempted Update",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                );
+
+        when(clientRepository.findVisibleById(
+                clientId,
+                companyId,
+                userId,
+                false
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> clientService.updateClient(
+                        clientId,
+                        request
+                )
+        );
+
+        verify(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
+
+        verify(clientRepository)
+                .findVisibleById(
+                        clientId,
+                        companyId,
+                        userId,
+                        false
+                );
+
+        verify(clientRepository, never())
+                .save(any(Client.class));
+    }
+
+    @Test
+    void updateClient_shouldUseManagementVisibilityForManagementUser() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(true);
+
+        Client client = mock(Client.class);
+
+        when(client.getId())
+                .thenReturn(clientId);
+
+        when(client.getCompany())
+                .thenReturn(company);
+
+        when(company.getId())
+                .thenReturn(companyId);
+
+        when(client.getName())
+                .thenReturn("Management Client");
+
+        when(client.getType())
+                .thenReturn(ClientType.BUYER);
+
+        when(client.getAccountStatus())
+                .thenReturn(AccountStatus.ACTIVE);
+
+        when(client.getVisibility())
+                .thenReturn(ClientVisibility.MANAGEMENT);
+
+        when(clientRepository.findVisibleById(
+                clientId,
+                companyId,
+                userId,
+                true
+        )).thenReturn(Optional.of(client));
+
+        when(clientRepository.save(client))
+                .thenReturn(client);
+
+        UpdateClientRequest request =
+                new UpdateClientRequest(
+                        "Updated Management Client",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                );
+
+        ClientResponse response =
+                clientService.updateClient(
+                        clientId,
+                        request
+                );
+
+        assertNotNull(response);
+
+        verify(clientRepository)
+                .findVisibleById(
+                        clientId,
+                        companyId,
+                        userId,
+                        true
+                );
+
+        verify(client)
+                .setName("Updated Management Client");
+
+        verify(clientRepository)
+                .save(client);
     }
 
     @Test
@@ -757,21 +1171,113 @@ class ClientServiceTest {
                 .requirePermission("CLIENT_UPDATE");
 
         verify(clientRepository, never())
-                .findByIdAndCompanyId(
+                .findVisibleById(
                         any(UUID.class),
-                        any(UUID.class)
+                        any(UUID.class),
+                        any(UUID.class),
+                        anyBoolean()
                 );
 
         verify(clientRepository, never())
                 .save(any(Client.class));
+
+        verifyNoInteractions(currentUserService);
+    }
+
+    // =========================================================================
+    // TENANT ISOLATION
+    // =========================================================================
+
+    @Test
+    void getAllClients_shouldAlwaysUseCurrentTenant() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_READ");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(false);
+
+        when(clientRepository.findAllVisibleToUser(
+                companyId,
+                userId,
+                false
+        )).thenReturn(List.of());
+
+        clientService.getAllClients();
+
+        verify(clientRepository)
+                .findAllVisibleToUser(
+                        companyId,
+                        userId,
+                        false
+                );
+
+        verify(clientRepository, never())
+                .findAllVisibleToUser(
+                        anotherCompanyId,
+                        userId,
+                        false
+                );
     }
 
     @Test
-    void updateClient_shouldNotUpdateClientFromAnotherCompany() {
+    void getClientById_shouldAlwaysUseCurrentTenant() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_READ");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(false);
+
+        when(clientRepository.findVisibleById(
+                clientId,
+                companyId,
+                userId,
+                false
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> clientService.getClientById(clientId)
+        );
+
+        verify(clientRepository)
+                .findVisibleById(
+                        clientId,
+                        companyId,
+                        userId,
+                        false
+                );
+
+        verify(clientRepository, never())
+                .findVisibleById(
+                        clientId,
+                        anotherCompanyId,
+                        userId,
+                        false
+                );
+    }
+
+    @Test
+    void updateClient_shouldAlwaysUseCurrentTenant() {
 
         doNothing()
                 .when(authorizationService)
                 .requirePermission("CLIENT_UPDATE");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(false);
 
         UpdateClientRequest request =
                 new UpdateClientRequest(
@@ -793,9 +1299,11 @@ class ClientServiceTest {
                         null
                 );
 
-        when(clientRepository.findByIdAndCompanyId(
+        when(clientRepository.findVisibleById(
                 clientId,
-                companyId
+                companyId,
+                userId,
+                false
         )).thenReturn(Optional.empty());
 
         assertThrows(
@@ -806,72 +1314,20 @@ class ClientServiceTest {
                 )
         );
 
-        verify(authorizationService)
-                .requirePermission("CLIENT_UPDATE");
-
         verify(clientRepository)
-                .findByIdAndCompanyId(
+                .findVisibleById(
                         clientId,
-                        companyId
+                        companyId,
+                        userId,
+                        false
                 );
 
         verify(clientRepository, never())
-                .save(any(Client.class));
-
-        verify(clientRepository, never())
-                .findByIdAndCompanyId(
+                .findVisibleById(
                         clientId,
-                        anotherCompanyId
-                );
-    }
-
-    @Test
-    void createClient_shouldRejectOwnerFromAnotherCompany() {
-
-        doNothing()
-                .when(authorizationService)
-                .requirePermission("CLIENT_CREATE");
-
-        CreateClientRequest request =
-                new CreateClientRequest(
-                        "Test Mining Supplier",
-                        ClientType.SUPPLIER,
-                        "Limpopo",
-                        null,
-                        null,
-                        "50% deposit",
-                        DeliveryTerm.FOT,
-                        "SACD City Deep",
-                        "John Smith",
-                        "+27 82 000 0000",
-                        "john@example.com",
-                        null,
-                        null,
-                        null,
-                        anotherUserId,
-                        ClientVisibility.PRIVATE
-                );
-
-        when(companyRepository.findById(companyId))
-                .thenReturn(Optional.of(company));
-
-        when(userRepository.findByIdAndCompanyId(
-                anotherUserId,
-                companyId
-        )).thenReturn(Optional.empty());
-
-        assertThrows(
-                ResourceNotFoundException.class,
-                () -> clientService.createClient(request)
-        );
-
-        verify(authorizationService)
-                .requirePermission("CLIENT_CREATE");
-
-        verify(userRepository)
-                .findByIdAndCompanyId(
-                        anotherUserId,
-                        companyId
+                        anotherCompanyId,
+                        userId,
+                        false
                 );
 
         verify(clientRepository, never())
