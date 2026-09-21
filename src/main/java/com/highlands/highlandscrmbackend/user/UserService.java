@@ -6,12 +6,12 @@ import com.highlands.highlandscrmbackend.company.Company;
 import com.highlands.highlandscrmbackend.company.CompanyRepository;
 import com.highlands.highlandscrmbackend.role.Role;
 import com.highlands.highlandscrmbackend.role.RoleRepository;
+import com.highlands.highlandscrmbackend.security.AuthorizationService;
 import com.highlands.highlandscrmbackend.security.TenantContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -25,22 +25,33 @@ public class UserService {
     private final CompanyRepository companyRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuthorizationService authorizationService;
 
     public UserService(
             UserRepository userRepository,
             CompanyRepository companyRepository,
             RoleRepository roleRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            AuthorizationService authorizationService
     ) {
         this.userRepository = userRepository;
         this.companyRepository = companyRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
+        this.authorizationService = authorizationService;
     }
+
+    // -------------------------------------------------------------------------
+    // CREATE USER
+    // -------------------------------------------------------------------------
 
     public UserResponse createUser(UserCreateRequest request) {
 
         UUID companyId = TenantContext.requireCompanyId();
+
+        authorizationService.requirePermission(
+                "USER_CREATE"
+        );
 
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -59,7 +70,8 @@ public class UserService {
 
         Set<Role> roles = resolveRoles(request.roleIds());
 
-        String passwordHash = passwordEncoder.encode(request.password());
+        String passwordHash =
+                passwordEncoder.encode(request.password());
 
         User user = new User(
                 company,
@@ -76,10 +88,18 @@ public class UserService {
         return UserResponse.from(savedUser);
     }
 
+    // -------------------------------------------------------------------------
+    // GET USERS
+    // -------------------------------------------------------------------------
+
     @Transactional(readOnly = true)
     public List<UserResponse> getUsersByCompany() {
 
         UUID companyId = TenantContext.requireCompanyId();
+
+        authorizationService.requirePermission(
+                "USER_READ"
+        );
 
         return userRepository.findAllByCompanyId(companyId)
                 .stream()
@@ -87,10 +107,18 @@ public class UserService {
                 .toList();
     }
 
+    // -------------------------------------------------------------------------
+    // GET USER BY ID
+    // -------------------------------------------------------------------------
+
     @Transactional(readOnly = true)
     public UserResponse getUserById(UUID id) {
 
         UUID companyId = TenantContext.requireCompanyId();
+
+        authorizationService.requirePermission(
+                "USER_READ"
+        );
 
         User user = userRepository.findByIdAndCompanyId(
                         id,
@@ -103,6 +131,10 @@ public class UserService {
         return UserResponse.from(user);
     }
 
+    // -------------------------------------------------------------------------
+    // RESOLVE ROLES
+    // -------------------------------------------------------------------------
+
     private Set<Role> resolveRoles(Set<UUID> roleIds) {
 
         UUID companyId = TenantContext.requireCompanyId();
@@ -114,10 +146,12 @@ public class UserService {
                                 companyId
                         ).orElseThrow(() ->
                                 new ResourceNotFoundException(
-                                        "Role with id '" + roleId + "' not found"
+                                        "Role with id '" + roleId
+                                                + "' not found"
                                 )
                         )
                 )
                 .collect(Collectors.toSet());
     }
 }
+

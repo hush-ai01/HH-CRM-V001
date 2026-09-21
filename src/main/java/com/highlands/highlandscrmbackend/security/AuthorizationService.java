@@ -37,9 +37,11 @@ public class AuthorizationService {
     public void requirePermission(String permissionCode) {
 
         if (!hasPermission(permissionCode)) {
+
             throw new ForbiddenException(
                     "You do not have permission to perform this action"
             );
         }
     }
 }
+

@@ -6,6 +6,8 @@ import com.highlands.highlandscrmbackend.company.Company;
 import com.highlands.highlandscrmbackend.company.CompanyRepository;
 import com.highlands.highlandscrmbackend.role.Role;
 import com.highlands.highlandscrmbackend.role.RoleRepository;
+import com.highlands.highlandscrmbackend.security.AuthorizationService;
+import com.highlands.highlandscrmbackend.security.ForbiddenException;
 import com.highlands.highlandscrmbackend.security.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +40,9 @@ class UserServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private AuthorizationService authorizationService;
 
     @InjectMocks
     private UserService userService;
@@ -93,9 +98,6 @@ class UserServiceTest {
                 request.email()
         )).thenReturn(false);
 
-        /*
-         * Role lookup must be tenant-aware.
-         */
         when(roleRepository.findByIdAndCompanyId(
                 roleId,
                 companyId
@@ -104,10 +106,6 @@ class UserServiceTest {
         when(passwordEncoder.encode(request.password()))
                 .thenReturn("hashed-password");
 
-        /*
-         * UserResponse.from() requires the saved User
-         * to have a Company relationship.
-         */
         when(savedUser.getId())
                 .thenReturn(userId);
 
@@ -137,6 +135,9 @@ class UserServiceTest {
 
         assertNotNull(response);
 
+        verify(authorizationService)
+                .requirePermission("USER_CREATE");
+
         verify(companyRepository)
                 .findById(companyId);
 
@@ -152,9 +153,6 @@ class UserServiceTest {
                         companyId
                 );
 
-        /*
-         * The old non-tenant-aware lookup must never be used.
-         */
         verify(roleRepository, never())
                 .findById(roleId);
 
@@ -228,9 +226,9 @@ class UserServiceTest {
 
         assertNotNull(response);
 
-        /*
-         * TenantContext must determine the company.
-         */
+        verify(authorizationService)
+                .requirePermission("USER_CREATE");
+
         verify(companyRepository)
                 .findById(tenantCompanyId);
 
@@ -273,6 +271,42 @@ class UserServiceTest {
         );
 
         verifyNoInteractions(
+                authorizationService,
+                companyRepository,
+                userRepository,
+                roleRepository,
+                passwordEncoder
+        );
+    }
+
+    @Test
+    void shouldRejectCreateUserWhenUserLacksCreatePermission() {
+
+        TenantContext.setCompanyId(companyId);
+
+        UserCreateRequest request = new UserCreateRequest(
+                companyId,
+                "john.doe@example.com",
+                "Password123!",
+                "John",
+                "Doe",
+                Set.of()
+        );
+
+        doThrow(new ForbiddenException(
+                "You do not have permission to perform this action"
+        )).when(authorizationService)
+                .requirePermission("USER_CREATE");
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> userService.createUser(request)
+        );
+
+        verify(authorizationService)
+                .requirePermission("USER_CREATE");
+
+        verifyNoInteractions(
                 companyRepository,
                 userRepository,
                 roleRepository,
@@ -301,6 +335,9 @@ class UserServiceTest {
                 ResourceNotFoundException.class,
                 () -> userService.createUser(request)
         );
+
+        verify(authorizationService)
+                .requirePermission("USER_CREATE");
 
         verify(companyRepository)
                 .findById(companyId);
@@ -343,6 +380,9 @@ class UserServiceTest {
                 () -> userService.createUser(request)
         );
 
+        verify(authorizationService)
+                .requirePermission("USER_CREATE");
+
         verify(userRepository)
                 .existsByCompanyIdAndEmail(
                         companyId,
@@ -382,9 +422,6 @@ class UserServiceTest {
                 request.email()
         )).thenReturn(false);
 
-        /*
-         * The tenant-aware repository lookup returns nothing.
-         */
         when(roleRepository.findByIdAndCompanyId(
                 roleId,
                 companyId
@@ -394,6 +431,9 @@ class UserServiceTest {
                 ResourceNotFoundException.class,
                 () -> userService.createUser(request)
         );
+
+        verify(authorizationService)
+                .requirePermission("USER_CREATE");
 
         verify(roleRepository)
                 .findByIdAndCompanyId(
@@ -415,8 +455,6 @@ class UserServiceTest {
 
         TenantContext.setCompanyId(companyId);
 
-//        UUID anotherCompanyId = UUID.randomUUID();
-
         UserCreateRequest request = new UserCreateRequest(
                 companyId,
                 "john.doe@example.com",
@@ -436,13 +474,6 @@ class UserServiceTest {
                 request.email()
         )).thenReturn(false);
 
-        /*
-         * A role belonging to another company must not be returned
-         * by findByIdAndCompanyId(roleId, companyId).
-         *
-         * From the UserService perspective this is simply:
-         * "role does not exist for this tenant".
-         */
         when(roleRepository.findByIdAndCompanyId(
                 roleId,
                 companyId
@@ -452,6 +483,9 @@ class UserServiceTest {
                 ResourceNotFoundException.class,
                 () -> userService.createUser(request)
         );
+
+        verify(authorizationService)
+                .requirePermission("USER_CREATE");
 
         verify(roleRepository)
                 .findByIdAndCompanyId(
@@ -536,18 +570,15 @@ class UserServiceTest {
 
         assertNotNull(response);
 
-        /*
-         * Verify the current tenant was passed to the role query.
-         */
+        verify(authorizationService)
+                .requirePermission("USER_CREATE");
+
         verify(roleRepository)
                 .findByIdAndCompanyId(
                         roleId,
                         tenantCompanyId
                 );
 
-        /*
-         * Ensure the old non-tenant-aware query is never used.
-         */
         verify(roleRepository, never())
                 .findById(roleId);
     }
@@ -582,11 +613,32 @@ class UserServiceTest {
         assertNotNull(response);
         assertEquals(1, response.size());
 
-        /*
-         * The repository MUST be queried using the current tenant.
-         */
+        verify(authorizationService)
+                .requirePermission("USER_READ");
+
         verify(userRepository)
                 .findAllByCompanyId(companyId);
+    }
+
+    @Test
+    void shouldRejectGetUsersWhenUserLacksReadPermission() {
+
+        TenantContext.setCompanyId(companyId);
+
+        doThrow(new ForbiddenException(
+                "You do not have permission to perform this action"
+        )).when(authorizationService)
+                .requirePermission("USER_READ");
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> userService.getUsersByCompany()
+        );
+
+        verify(authorizationService)
+                .requirePermission("USER_READ");
+
+        verifyNoInteractions(userRepository);
     }
 
     @Test
@@ -599,7 +651,10 @@ class UserServiceTest {
                 () -> userService.getUsersByCompany()
         );
 
-        verifyNoInteractions(userRepository);
+        verifyNoInteractions(
+                authorizationService,
+                userRepository
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -633,11 +688,35 @@ class UserServiceTest {
 
         assertNotNull(response);
 
+        verify(authorizationService)
+                .requirePermission("USER_READ");
+
         verify(userRepository)
                 .findByIdAndCompanyId(
                         userId,
                         companyId
                 );
+    }
+
+    @Test
+    void shouldRejectGetUserByIdWhenUserLacksReadPermission() {
+
+        TenantContext.setCompanyId(companyId);
+
+        doThrow(new ForbiddenException(
+                "You do not have permission to perform this action"
+        )).when(authorizationService)
+                .requirePermission("USER_READ");
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> userService.getUserById(userId)
+        );
+
+        verify(authorizationService)
+                .requirePermission("USER_READ");
+
+        verifyNoInteractions(userRepository);
     }
 
     @Test
@@ -654,6 +733,9 @@ class UserServiceTest {
                 ResourceNotFoundException.class,
                 () -> userService.getUserById(userId)
         );
+
+        verify(authorizationService)
+                .requirePermission("USER_READ");
 
         verify(userRepository)
                 .findByIdAndCompanyId(
@@ -672,7 +754,10 @@ class UserServiceTest {
                 () -> userService.getUserById(userId)
         );
 
-        verifyNoInteractions(userRepository);
+        verifyNoInteractions(
+                authorizationService,
+                userRepository
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -700,12 +785,12 @@ class UserServiceTest {
 
         userService.getUsersByCompany();
 
+        verify(authorizationService)
+                .requirePermission("USER_READ");
+
         verify(userRepository)
                 .findAllByCompanyId(tenantCompanyId);
 
-        /*
-         * Any query using another tenant ID would violate isolation.
-         */
         verify(userRepository, never())
                 .findAllByCompanyId(
                         argThat(id ->
@@ -731,6 +816,9 @@ class UserServiceTest {
                 () -> userService.getUserById(userId)
         );
 
+        verify(authorizationService)
+                .requirePermission("USER_READ");
+
         verify(userRepository)
                 .findByIdAndCompanyId(
                         userId,
@@ -738,3 +826,4 @@ class UserServiceTest {
                 );
     }
 }
+
