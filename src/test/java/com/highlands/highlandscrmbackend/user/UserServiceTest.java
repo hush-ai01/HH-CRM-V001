@@ -1082,11 +1082,9 @@ class UserServiceTest {
         verify(user)
                 .setLastName("Smith");
 
-        // Email is unchanged, therefore the service must not call setEmail().
         verify(user, never())
                 .setEmail(anyString());
 
-        // Email is unchanged, therefore no duplicate-email lookup is required.
         verify(userRepository, never())
                 .existsByCompanyIdAndEmail(
                         any(UUID.class),
@@ -1204,6 +1202,277 @@ class UserServiceTest {
                 roleRepository,
                 passwordEncoder
         );
+    }
+
+    // -------------------------------------------------------------------------
+    // UPDATE USER STATUS
+    // -------------------------------------------------------------------------
+
+    @Test
+    void shouldDeactivateUserSuccessfully() {
+
+        TenantContext.setCompanyId(companyId);
+
+        UserStatusUpdateRequest request =
+                new UserStatusUpdateRequest(false);
+
+        User user = mock(User.class);
+        User savedUser = mock(User.class);
+        Company company = mock(Company.class);
+        Role role = mock(Role.class);
+
+        when(userRepository.findByIdAndCompanyId(
+                userId,
+                companyId
+        )).thenReturn(Optional.of(user));
+
+        when(userRepository.save(user))
+                .thenReturn(savedUser);
+
+        when(savedUser.getId())
+                .thenReturn(userId);
+
+        when(savedUser.getCompany())
+                .thenReturn(company);
+
+        when(company.getId())
+                .thenReturn(companyId);
+
+        when(savedUser.getEmail())
+                .thenReturn("john@example.com");
+
+        when(savedUser.getFirstName())
+                .thenReturn("John");
+
+        when(savedUser.getLastName())
+                .thenReturn("Doe");
+
+        when(savedUser.isActive())
+                .thenReturn(false);
+
+        when(savedUser.getRoles())
+                .thenReturn(Set.of(role));
+
+        UserResponse response =
+                userService.updateUserStatus(
+                        userId,
+                        request
+                );
+
+        assertNotNull(response);
+
+        verify(authorizationService)
+                .requirePermission("USER_DEACTIVATE");
+
+        verify(userRepository)
+                .findByIdAndCompanyId(
+                        userId,
+                        companyId
+                );
+
+        verify(user)
+                .setActive(false);
+
+        verify(userRepository)
+                .save(user);
+
+        verifyNoMoreInteractions(userRepository);
+    }
+
+    @Test
+    void shouldReactivateUserSuccessfully() {
+
+        TenantContext.setCompanyId(companyId);
+
+        UserStatusUpdateRequest request =
+                new UserStatusUpdateRequest(true);
+
+        User user = mock(User.class);
+        User savedUser = mock(User.class);
+        Company company = mock(Company.class);
+        Role role = mock(Role.class);
+
+        when(userRepository.findByIdAndCompanyId(
+                userId,
+                companyId
+        )).thenReturn(Optional.of(user));
+
+        when(userRepository.save(user))
+                .thenReturn(savedUser);
+
+        when(savedUser.getId())
+                .thenReturn(userId);
+
+        when(savedUser.getCompany())
+                .thenReturn(company);
+
+        when(company.getId())
+                .thenReturn(companyId);
+
+        when(savedUser.getEmail())
+                .thenReturn("john@example.com");
+
+        when(savedUser.getFirstName())
+                .thenReturn("John");
+
+        when(savedUser.getLastName())
+                .thenReturn("Doe");
+
+        when(savedUser.isActive())
+                .thenReturn(true);
+
+        when(savedUser.getRoles())
+                .thenReturn(Set.of(role));
+
+        UserResponse response =
+                userService.updateUserStatus(
+                        userId,
+                        request
+                );
+
+        assertNotNull(response);
+
+        verify(authorizationService)
+                .requirePermission("USER_DEACTIVATE");
+
+        verify(userRepository)
+                .findByIdAndCompanyId(
+                        userId,
+                        companyId
+                );
+
+        verify(user)
+                .setActive(true);
+
+        verify(userRepository)
+                .save(user);
+
+        verifyNoMoreInteractions(userRepository);
+    }
+
+    @Test
+    void shouldRejectUpdateStatusWhenPermissionIsMissing() {
+
+        TenantContext.setCompanyId(companyId);
+
+        UserStatusUpdateRequest request =
+                new UserStatusUpdateRequest(false);
+
+        doThrow(new ForbiddenException(
+                "You do not have permission to perform this action"
+        )).when(authorizationService)
+                .requirePermission("USER_DEACTIVATE");
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> userService.updateUserStatus(
+                        userId,
+                        request
+                )
+        );
+
+        verify(authorizationService)
+                .requirePermission("USER_DEACTIVATE");
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void shouldRejectUpdateStatusWhenTenantContextIsMissing() {
+
+        TenantContext.clear();
+
+        UserStatusUpdateRequest request =
+                new UserStatusUpdateRequest(false);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> userService.updateUserStatus(
+                        userId,
+                        request
+                )
+        );
+
+        verifyNoInteractions(
+                authorizationService,
+                userRepository
+        );
+    }
+
+    @Test
+    void shouldRejectUpdateStatusWhenUserDoesNotExist() {
+
+        TenantContext.setCompanyId(companyId);
+
+        UserStatusUpdateRequest request =
+                new UserStatusUpdateRequest(false);
+
+        when(userRepository.findByIdAndCompanyId(
+                userId,
+                companyId
+        )).thenReturn(Optional.empty());
+
+        ResourceNotFoundException exception =
+                assertThrows(
+                        ResourceNotFoundException.class,
+                        () -> userService.updateUserStatus(
+                                userId,
+                                request
+                        )
+                );
+
+        assertEquals(
+                "User with id '" + userId + "' not found",
+                exception.getMessage()
+        );
+
+        verify(authorizationService)
+                .requirePermission("USER_DEACTIVATE");
+
+        verify(userRepository)
+                .findByIdAndCompanyId(
+                        userId,
+                        companyId
+                );
+
+        verify(userRepository, never())
+                .save(any(User.class));
+    }
+
+    @Test
+    void shouldNotUpdateUserFromAnotherTenant() {
+
+        TenantContext.setCompanyId(companyId);
+
+        UUID anotherUserId = UUID.randomUUID();
+
+        UserStatusUpdateRequest request =
+                new UserStatusUpdateRequest(false);
+
+        when(userRepository.findByIdAndCompanyId(
+                anotherUserId,
+                companyId
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> userService.updateUserStatus(
+                        anotherUserId,
+                        request
+                )
+        );
+
+        verify(authorizationService)
+                .requirePermission("USER_DEACTIVATE");
+
+        verify(userRepository)
+                .findByIdAndCompanyId(
+                        anotherUserId,
+                        companyId
+                );
+
+        verify(userRepository, never())
+                .save(any(User.class));
     }
 
     // -------------------------------------------------------------------------

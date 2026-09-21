@@ -58,4 +58,14 @@ public class UserController {
         );
     }
 
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<UserResponse> updateUserStatus(
+            @PathVariable UUID id,
+            @Valid @RequestBody UserStatusUpdateRequest request
+    ) {
+        return ResponseEntity.ok(
+                userService.updateUserStatus(id, request)
+        );
+    }
+
 }

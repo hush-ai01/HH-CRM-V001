@@ -201,4 +201,32 @@ public class UserService {
 
         return UserResponse.from(savedUser);
     }
+
+    // -------------------------------------------------------------------------
+// UPDATE USER STATUS
+// -------------------------------------------------------------------------
+
+    public UserResponse updateUserStatus(
+            UUID id,
+            UserStatusUpdateRequest request
+    ) {
+
+        UUID companyId = TenantContext.requireCompanyId();
+
+        authorizationService.requirePermission("USER_DEACTIVATE");
+
+        User user = userRepository.findByIdAndCompanyId(
+                        id,
+                        companyId
+                )
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User with id '" + id + "' not found"
+                ));
+
+        user.setActive(request.active());
+
+        User savedUser = userRepository.save(user);
+
+        return UserResponse.from(savedUser);
+    }
 }
