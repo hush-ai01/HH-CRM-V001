@@ -63,4 +63,15 @@ public class ClientController {
                 clientService.updateClient(id, request)
         );
     }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ClientResponse> updateClientStatus(
+            @PathVariable UUID id,
+            @Valid @RequestBody ClientStatusUpdateRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                clientService.updateClientStatus(id, request)
+        );
+    }
 }

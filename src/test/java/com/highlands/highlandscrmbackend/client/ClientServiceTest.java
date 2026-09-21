@@ -7,7 +7,6 @@ import com.highlands.highlandscrmbackend.security.AuthorizationService;
 import com.highlands.highlandscrmbackend.security.CurrentUserService;
 import com.highlands.highlandscrmbackend.security.ForbiddenException;
 import com.highlands.highlandscrmbackend.security.TenantContext;
-import com.highlands.highlandscrmbackend.user.User;
 import com.highlands.highlandscrmbackend.user.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +43,8 @@ class ClientServiceTest {
     private Company company;
 
     @Mock
-    private User owner;
+    private Client client;
+
 
     @Mock
     private AuthorizationService authorizationService;
@@ -1331,5 +1331,122 @@ class ClientServiceTest {
 
         verify(clientRepository, never())
                 .save(any(Client.class));
+    }
+
+    // =========================================================================
+// UPDATE CLIENT STATUS
+// =========================================================================
+
+    @Test
+    void updateClientStatus_shouldUpdateStatusSuccessfully() {
+
+        doNothing()
+                .when(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
+
+        when(currentUserService.getCurrentUserId())
+                .thenReturn(userId);
+
+        when(currentUserService.isManagementUser())
+                .thenReturn(false);
+
+        when(clientRepository.findVisibleById(
+                clientId,
+                companyId,
+                userId,
+                false
+        )).thenReturn(Optional.of(client));
+
+        when(clientRepository.save(client))
+                .thenReturn(client);
+
+        when(client.getId())
+                .thenReturn(clientId);
+
+        when(client.getCompany())
+                .thenReturn(company);
+
+        when(company.getId())
+                .thenReturn(companyId);
+
+        when(client.getName())
+                .thenReturn("Test Client");
+
+        when(client.getType())
+                .thenReturn(ClientType.BUYER);
+
+        when(client.getAccountStatus())
+                .thenReturn(AccountStatus.ACTIVE);
+
+        when(client.getVisibility())
+                .thenReturn(ClientVisibility.PRIVATE);
+
+        ClientStatusUpdateRequest request =
+                new ClientStatusUpdateRequest(
+                        AccountStatus.ACTIVE
+                );
+
+        ClientResponse response =
+                clientService.updateClientStatus(
+                        clientId,
+                        request
+                );
+
+        assertNotNull(response);
+
+        verify(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
+
+        verify(currentUserService)
+                .getCurrentUserId();
+
+        verify(currentUserService)
+                .isManagementUser();
+
+        verify(clientRepository)
+                .findVisibleById(
+                        clientId,
+                        companyId,
+                        userId,
+                        false
+                );
+
+        verify(client)
+                .setAccountStatus(
+                        AccountStatus.ACTIVE
+                );
+
+        verify(clientRepository)
+                .save(client);
+    }
+    @Test
+    void updateClientStatus_shouldRejectWithoutUpdatePermission() {
+
+        ClientStatusUpdateRequest request =
+                new ClientStatusUpdateRequest(
+                        AccountStatus.ACTIVE
+                );
+
+        doThrow(new ForbiddenException(
+                "You do not have permission to perform this action"
+        ))
+                .when(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> clientService.updateClientStatus(
+                        clientId,
+                        request
+                )
+        );
+
+        verify(authorizationService)
+                .requirePermission("CLIENT_UPDATE");
+
+        verifyNoInteractions(
+                clientRepository,
+                currentUserService
+        );
     }
 }

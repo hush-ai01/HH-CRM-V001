@@ -327,4 +327,44 @@ public class ClientService {
                 client.getUpdatedAt()
         );
     }
+    public ClientResponse updateClientStatus(
+            UUID clientId,
+            ClientStatusUpdateRequest request
+    ) {
+        UUID companyId = TenantContext.requireCompanyId();
+
+        authorizationService.requirePermission("CLIENT_UPDATE");
+
+        UUID currentUserId =
+                currentUserService.getCurrentUserId();
+
+        boolean managementUser =
+                currentUserService.isManagementUser();
+
+        Client client =
+                clientRepository.findVisibleById(
+                                clientId,
+                                companyId,
+                                currentUserId,
+                                managementUser
+                        )
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Client with id '" + clientId + "' not found"
+                                )
+                        );
+
+        client.setAccountStatus(
+                request.accountStatus()
+        );
+
+        client.setUpdatedAt(
+                OffsetDateTime.now()
+        );
+
+        Client updatedClient =
+                clientRepository.save(client);
+
+        return toResponse(updatedClient);
+    }
 }
