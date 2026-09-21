@@ -378,6 +378,7 @@ class ClientServiceTest {
 
         verifyNoInteractions(companyRepository);
         verifyNoInteractions(userRepository);
+        verifyNoInteractions(currentUserService);
 
         verify(clientRepository, never())
                 .save(any(Client.class));
@@ -605,7 +606,6 @@ class ClientServiceTest {
                 .requirePermission("CLIENT_READ");
 
         verifyNoInteractions(clientRepository);
-
         verifyNoInteractions(currentUserService);
     }
 
@@ -849,7 +849,6 @@ class ClientServiceTest {
                 .requirePermission("CLIENT_READ");
 
         verifyNoInteractions(clientRepository);
-
         verifyNoInteractions(currentUserService);
     }
 
