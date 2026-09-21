@@ -761,6 +761,452 @@ class UserServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // UPDATE USER
+    // -------------------------------------------------------------------------
+
+    @Test
+    void shouldUpdateUserSuccessfully() {
+
+        TenantContext.setCompanyId(companyId);
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                "john.updated@example.com",
+                "John",
+                "Smith"
+        );
+
+        User user = mock(User.class);
+        User savedUser = mock(User.class);
+        Company company = mock(Company.class);
+
+        when(userRepository.findByIdAndCompanyId(
+                userId,
+                companyId
+        )).thenReturn(Optional.of(user));
+
+        when(user.getEmail())
+                .thenReturn("john@example.com");
+
+        when(userRepository.existsByCompanyIdAndEmail(
+                companyId,
+                request.email()
+        )).thenReturn(false);
+
+        when(userRepository.save(user))
+                .thenReturn(savedUser);
+
+        when(savedUser.getId())
+                .thenReturn(userId);
+
+        when(savedUser.getCompany())
+                .thenReturn(company);
+
+        when(savedUser.getEmail())
+                .thenReturn(request.email());
+
+        when(savedUser.getFirstName())
+                .thenReturn(request.firstName());
+
+        when(savedUser.getLastName())
+                .thenReturn(request.lastName());
+
+        when(savedUser.isActive())
+                .thenReturn(true);
+
+        when(savedUser.getRoles())
+                .thenReturn(Set.of());
+
+        UserResponse response =
+                userService.updateUser(
+                        userId,
+                        request
+                );
+
+        assertNotNull(response);
+
+        verify(authorizationService)
+                .requirePermission("USER_UPDATE");
+
+        verify(userRepository)
+                .findByIdAndCompanyId(
+                        userId,
+                        companyId
+                );
+
+        verify(userRepository)
+                .existsByCompanyIdAndEmail(
+                        companyId,
+                        request.email()
+                );
+
+        verify(user)
+                .setEmail(request.email());
+
+        verify(user)
+                .setFirstName(request.firstName());
+
+        verify(user)
+                .setLastName(request.lastName());
+
+        verify(userRepository)
+                .save(user);
+    }
+
+    @Test
+    void shouldPartiallyUpdateUser() {
+
+        TenantContext.setCompanyId(companyId);
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                null,
+                "John Updated",
+                null
+        );
+
+        User user = mock(User.class);
+        User savedUser = mock(User.class);
+        Company company = mock(Company.class);
+
+        when(userRepository.findByIdAndCompanyId(
+                userId,
+                companyId
+        )).thenReturn(Optional.of(user));
+
+        when(userRepository.save(user))
+                .thenReturn(savedUser);
+
+        when(savedUser.getId())
+                .thenReturn(userId);
+
+        when(savedUser.getCompany())
+                .thenReturn(company);
+
+        when(savedUser.getFirstName())
+                .thenReturn(request.firstName());
+
+        when(savedUser.getRoles())
+                .thenReturn(Set.of());
+
+        UserResponse response =
+                userService.updateUser(
+                        userId,
+                        request
+                );
+
+        assertNotNull(response);
+
+        verify(authorizationService)
+                .requirePermission("USER_UPDATE");
+
+        verify(user)
+                .setFirstName("John Updated");
+
+        verify(user, never())
+                .setEmail(anyString());
+
+        verify(user, never())
+                .setLastName(anyString());
+
+        verify(userRepository)
+                .save(user);
+
+        verify(userRepository, never())
+                .existsByCompanyIdAndEmail(
+                        any(UUID.class),
+                        anyString()
+                );
+    }
+
+    @Test
+    void shouldRejectUpdateWhenUserDoesNotExist() {
+
+        TenantContext.setCompanyId(companyId);
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                "john.updated@example.com",
+                "John",
+                "Smith"
+        );
+
+        when(userRepository.findByIdAndCompanyId(
+                userId,
+                companyId
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> userService.updateUser(
+                        userId,
+                        request
+                )
+        );
+
+        verify(authorizationService)
+                .requirePermission("USER_UPDATE");
+
+        verify(userRepository)
+                .findByIdAndCompanyId(
+                        userId,
+                        companyId
+                );
+
+        verify(userRepository, never())
+                .save(any(User.class));
+
+        verify(userRepository, never())
+                .existsByCompanyIdAndEmail(
+                        any(UUID.class),
+                        anyString()
+                );
+    }
+
+    @Test
+    void shouldRejectUpdateWhenEmailAlreadyExists() {
+
+        TenantContext.setCompanyId(companyId);
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                "existing@example.com",
+                "John",
+                "Smith"
+        );
+
+        User user = mock(User.class);
+
+        when(userRepository.findByIdAndCompanyId(
+                userId,
+                companyId
+        )).thenReturn(Optional.of(user));
+
+        when(user.getEmail())
+                .thenReturn("john@example.com");
+
+        when(userRepository.existsByCompanyIdAndEmail(
+                companyId,
+                request.email()
+        )).thenReturn(true);
+
+        assertThrows(
+                UserAlreadyExistsException.class,
+                () -> userService.updateUser(
+                        userId,
+                        request
+                )
+        );
+
+        verify(authorizationService)
+                .requirePermission("USER_UPDATE");
+
+        verify(userRepository)
+                .existsByCompanyIdAndEmail(
+                        companyId,
+                        request.email()
+                );
+
+        verify(userRepository, never())
+                .save(any(User.class));
+
+        verify(user, never())
+                .setEmail(anyString());
+
+        verify(user, never())
+                .setFirstName(anyString());
+
+        verify(user, never())
+                .setLastName(anyString());
+    }
+
+    @Test
+    void shouldAllowUpdateWhenEmailIsUnchanged() {
+
+        TenantContext.setCompanyId(companyId);
+
+        String existingEmail = "john@example.com";
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                existingEmail,
+                "John Updated",
+                "Smith"
+        );
+
+        User user = mock(User.class);
+        User savedUser = mock(User.class);
+        Company company = mock(Company.class);
+
+        when(userRepository.findByIdAndCompanyId(
+                userId,
+                companyId
+        )).thenReturn(Optional.of(user));
+
+        when(user.getEmail())
+                .thenReturn(existingEmail);
+
+        when(userRepository.save(user))
+                .thenReturn(savedUser);
+
+        when(savedUser.getId())
+                .thenReturn(userId);
+
+        when(savedUser.getCompany())
+                .thenReturn(company);
+
+        when(savedUser.getEmail())
+                .thenReturn(existingEmail);
+
+        when(savedUser.getFirstName())
+                .thenReturn(request.firstName());
+
+        when(savedUser.getLastName())
+                .thenReturn(request.lastName());
+
+        when(savedUser.isActive())
+                .thenReturn(true);
+
+        when(savedUser.getRoles())
+                .thenReturn(Set.of());
+
+        UserResponse response =
+                userService.updateUser(
+                        userId,
+                        request
+                );
+
+        assertNotNull(response);
+
+        verify(authorizationService)
+                .requirePermission("USER_UPDATE");
+
+        verify(user)
+                .setFirstName("John Updated");
+
+        verify(user)
+                .setLastName("Smith");
+
+        // Email is unchanged, therefore the service must not call setEmail().
+        verify(user, never())
+                .setEmail(anyString());
+
+        // Email is unchanged, therefore no duplicate-email lookup is required.
+        verify(userRepository, never())
+                .existsByCompanyIdAndEmail(
+                        any(UUID.class),
+                        anyString()
+                );
+
+        verify(userRepository)
+                .save(user);
+    }
+
+    @Test
+    void shouldRejectUpdateWhenPermissionIsMissing() {
+
+        TenantContext.setCompanyId(companyId);
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                "john.updated@example.com",
+                "John",
+                "Smith"
+        );
+
+        doThrow(new ForbiddenException(
+                "You do not have permission to perform this action"
+        )).when(authorizationService)
+                .requirePermission("USER_UPDATE");
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> userService.updateUser(
+                        userId,
+                        request
+                )
+        );
+
+        verify(authorizationService)
+                .requirePermission("USER_UPDATE");
+
+        verifyNoInteractions(
+                userRepository,
+                companyRepository,
+                roleRepository,
+                passwordEncoder
+        );
+    }
+
+    @Test
+    void shouldOnlyUpdateUserWithinCurrentTenant() {
+
+        UUID tenantCompanyId = UUID.randomUUID();
+        UUID anotherCompanyId = UUID.randomUUID();
+
+        TenantContext.setCompanyId(tenantCompanyId);
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                "john.updated@example.com",
+                "John",
+                "Smith"
+        );
+
+        when(userRepository.findByIdAndCompanyId(
+                userId,
+                tenantCompanyId
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> userService.updateUser(
+                        userId,
+                        request
+                )
+        );
+
+        verify(authorizationService)
+                .requirePermission("USER_UPDATE");
+
+        verify(userRepository)
+                .findByIdAndCompanyId(
+                        userId,
+                        tenantCompanyId
+                );
+
+        verify(userRepository, never())
+                .findByIdAndCompanyId(
+                        userId,
+                        anotherCompanyId
+                );
+
+        verify(userRepository, never())
+                .save(any(User.class));
+    }
+
+    @Test
+    void shouldRejectUpdateWhenTenantContextIsMissing() {
+
+        TenantContext.clear();
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                "john.updated@example.com",
+                "John",
+                "Smith"
+        );
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> userService.updateUser(
+                        userId,
+                        request
+                )
+        );
+
+        verifyNoInteractions(
+                authorizationService,
+                userRepository,
+                companyRepository,
+                roleRepository,
+                passwordEncoder
+        );
+    }
+
+    // -------------------------------------------------------------------------
     // ADDITIONAL TENANT ISOLATION CHECKS
     // -------------------------------------------------------------------------
 
@@ -826,4 +1272,3 @@ class UserServiceTest {
                 );
     }
 }
-

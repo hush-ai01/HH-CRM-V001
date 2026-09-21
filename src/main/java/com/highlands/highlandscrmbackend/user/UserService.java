@@ -49,9 +49,7 @@ public class UserService {
 
         UUID companyId = TenantContext.requireCompanyId();
 
-        authorizationService.requirePermission(
-                "USER_CREATE"
-        );
+        authorizationService.requirePermission("USER_CREATE");
 
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -97,9 +95,7 @@ public class UserService {
 
         UUID companyId = TenantContext.requireCompanyId();
 
-        authorizationService.requirePermission(
-                "USER_READ"
-        );
+        authorizationService.requirePermission("USER_READ");
 
         return userRepository.findAllByCompanyId(companyId)
                 .stream()
@@ -116,9 +112,7 @@ public class UserService {
 
         UUID companyId = TenantContext.requireCompanyId();
 
-        authorizationService.requirePermission(
-                "USER_READ"
-        );
+        authorizationService.requirePermission("USER_READ");
 
         User user = userRepository.findByIdAndCompanyId(
                         id,
@@ -153,5 +147,58 @@ public class UserService {
                 )
                 .collect(Collectors.toSet());
     }
-}
 
+    // -------------------------------------------------------------------------
+    // UPDATE USER
+    // -------------------------------------------------------------------------
+
+    public UserResponse updateUser(
+            UUID id,
+            UserUpdateRequest request
+    ) {
+
+        UUID companyId = TenantContext.requireCompanyId();
+
+        authorizationService.requirePermission("USER_UPDATE");
+
+        User user = userRepository.findByIdAndCompanyId(
+                        id,
+                        companyId
+                )
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User with id '" + id + "' not found"
+                ));
+
+        /*
+         * Only perform the duplicate-email lookup when the requested
+         * email is actually different from the user's current email.
+         */
+        if (request.email() != null
+                && !request.email().equalsIgnoreCase(user.getEmail())) {
+
+            if (userRepository.existsByCompanyIdAndEmail(
+                    companyId,
+                    request.email()
+            )) {
+                throw new UserAlreadyExistsException(
+                        "User with email '" + request.email()
+                                + "' already exists for this company"
+                );
+            }
+
+            user.setEmail(request.email());
+        }
+
+        if (request.firstName() != null) {
+            user.setFirstName(request.firstName());
+        }
+
+        if (request.lastName() != null) {
+            user.setLastName(request.lastName());
+        }
+
+        User savedUser = userRepository.save(user);
+
+        return UserResponse.from(savedUser);
+    }
+}

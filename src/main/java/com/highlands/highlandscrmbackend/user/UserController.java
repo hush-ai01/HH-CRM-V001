@@ -44,4 +44,18 @@ public class UserController {
                 userService.getUserById(id)
         );
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<UserResponse> updateUser(
+            @PathVariable UUID id,
+            @Valid @RequestBody UserUpdateRequest request
+    ) {
+        return ResponseEntity.ok(
+                userService.updateUser(
+                        id,
+                        request
+                )
+        );
+    }
+
 }
