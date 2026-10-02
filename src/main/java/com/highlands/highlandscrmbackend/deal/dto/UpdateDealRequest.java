@@ -1,39 +1,40 @@
 package com.highlands.highlandscrmbackend.deal.dto;
 
-import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record UpdateDealRequest(
 
-        @Size(max = 100, message = "Commodity must not exceed 100 characters")
-        String commodity,
+        @NotNull(message = "Commodity is required")
+        UUID commodityId,
 
-        @Size(max = 100, message = "Grade must not exceed 100 characters")
-        String grade,
+        @NotNull(message = "Grade is required")
+        UUID gradeId,
 
-        @DecimalMin(
-                value = "0.0001",
-                message = "Quantity must be greater than zero"
-        )
+        @NotNull(message = "Quantity is required")
+        @Positive(message = "Quantity must be greater than zero")
         BigDecimal quantity,
 
+        @NotNull(message = "Unit is required")
         @Size(max = 20, message = "Unit must not exceed 20 characters")
         String unit,
 
-        @DecimalMin(
-                value = "0.0001",
-                message = "Unit price must be greater than zero"
-        )
+        @NotNull(message = "Unit price is required")
+        @Positive(message = "Unit price must be greater than zero")
         BigDecimal unitPrice,
 
-        @Size(min = 3, max = 3, message = "Currency must be a 3-letter code")
+        @NotNull(message = "Currency is required")
+        @Size(min = 3, max = 3, message = "Currency must be exactly 3 characters")
         String currency,
 
         LocalDate expectedCloseDate,
 
+        @Size(max = 5000, message = "Notes must not exceed 5000 characters")
         String notes
 ) {
 }

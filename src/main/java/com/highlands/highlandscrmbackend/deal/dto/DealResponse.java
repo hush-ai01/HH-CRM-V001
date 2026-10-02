@@ -24,9 +24,9 @@ public record DealResponse(
 
         DealStatus status,
 
-        String commodity,
+        UUID commodityId,
 
-        String grade,
+        UUID gradeId,
 
         BigDecimal quantity,
 

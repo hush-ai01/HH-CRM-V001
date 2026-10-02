@@ -3,6 +3,8 @@ package com.highlands.highlandscrmbackend.deal;
 import com.highlands.highlandscrmbackend.client.Client;
 import com.highlands.highlandscrmbackend.company.Company;
 import com.highlands.highlandscrmbackend.user.User;
+import com.highlands.highlandscrmbackend.commodity.Commodity;
+import com.highlands.highlandscrmbackend.grade.Grade;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -56,11 +58,13 @@ public class Deal {
     @Column(nullable = false, length = 30)
     private DealStatus status;
 
-    @Column(nullable = false, length = 100)
-    private String commodity;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "commodity_id", nullable = false)
+    private Commodity commodity;
 
-    @Column(length = 100)
-    private String grade;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "grade_id", nullable = false)
+    private Grade grade;
 
     @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal quantity;
@@ -98,8 +102,8 @@ public class Deal {
             User owner,
             String dealNumber,
             DealType type,
-            String commodity,
-            String grade,
+            Commodity commodity,
+            Grade grade,
             BigDecimal quantity,
             String unit,
             BigDecimal unitPrice,
@@ -129,8 +133,8 @@ public class Deal {
     }
 
     public void update(
-            String commodity,
-            String grade,
+            Commodity commodity,
+            Grade grade,
             BigDecimal quantity,
             String unit,
             BigDecimal unitPrice,
@@ -183,11 +187,11 @@ public class Deal {
         return status;
     }
 
-    public String getCommodity() {
+    public Commodity getCommodity() {
         return commodity;
     }
 
-    public String getGrade() {
+    public Grade getGrade() {
         return grade;
     }
 

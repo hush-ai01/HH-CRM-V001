@@ -18,12 +18,11 @@ public record CreateDealRequest(
         @NotNull(message = "Deal type is required")
         DealType type,
 
-        @NotBlank(message = "Commodity is required")
-        @Size(max = 100, message = "Commodity must not exceed 100 characters")
-        String commodity,
+        @NotNull(message = "Commodity is required")
+        UUID commodityId,
 
-        @Size(max = 100, message = "Grade must not exceed 100 characters")
-        String grade,
+        @NotNull(message = "Grade is required")
+        UUID gradeId,
 
         @NotNull(message = "Quantity is required")
         @DecimalMin(
@@ -44,11 +43,19 @@ public record CreateDealRequest(
         BigDecimal unitPrice,
 
         @NotBlank(message = "Currency is required")
-        @Size(min = 3, max = 3, message = "Currency must be a 3-letter code")
+        @Size(
+                min = 3,
+                max = 3,
+                message = "Currency must be exactly 3 characters"
+        )
         String currency,
 
         LocalDate expectedCloseDate,
 
+        @Size(
+                max = 5000,
+                message = "Notes must not exceed 5000 characters"
+        )
         String notes
 ) {
 }

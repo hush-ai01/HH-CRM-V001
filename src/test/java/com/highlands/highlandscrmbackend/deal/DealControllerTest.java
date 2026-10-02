@@ -2,10 +2,12 @@ package com.highlands.highlandscrmbackend.deal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.highlands.highlandscrmbackend.commodity.Commodity;
 import com.highlands.highlandscrmbackend.deal.dto.ChangeDealStatusRequest;
 import com.highlands.highlandscrmbackend.deal.dto.CreateDealRequest;
 import com.highlands.highlandscrmbackend.deal.dto.DealResponse;
 import com.highlands.highlandscrmbackend.deal.dto.UpdateDealRequest;
+import com.highlands.highlandscrmbackend.grade.Grade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +52,8 @@ class DealControllerTest {
     private UUID companyId;
     private UUID clientId;
     private UUID ownerUserId;
+    private UUID commodityId;
+    private UUID gradeId;
 
     @BeforeEach
     void setUp() {
@@ -68,6 +72,8 @@ class DealControllerTest {
         companyId = UUID.randomUUID();
         clientId = UUID.randomUUID();
         ownerUserId = UUID.randomUUID();
+        commodityId = UUID.randomUUID();
+        gradeId = UUID.randomUUID();
     }
 
     // -------------------------------------------------------------------------
@@ -81,8 +87,8 @@ class DealControllerTest {
                 new CreateDealRequest(
                         clientId,
                         DealType.SELL,
-                        "Chrome",
-                        "42% Grade",
+                        commodityId,
+                        gradeId,
                         new BigDecimal("100.0000"),
                         "TON",
                         new BigDecimal("1500.0000"),
@@ -100,8 +106,8 @@ class DealControllerTest {
                         "DL-2026-ABC12345",
                         DealType.SELL,
                         DealStatus.DRAFT,
-                        "Chrome",
-                        "42% Grade",
+                        commodityId,
+                        gradeId,
                         new BigDecimal("100.0000"),
                         "TON",
                         new BigDecimal("1500.0000"),
@@ -115,6 +121,7 @@ class DealControllerTest {
 
         /*
          * Important:
+         *
          * Create the Deal before calling when(...).thenReturn(...).
          * This avoids Mockito unfinished-stubbing issues caused by nested
          * Mockito calls inside thenReturn().
@@ -124,8 +131,8 @@ class DealControllerTest {
         when(dealService.create(
                 eq(clientId),
                 eq(DealType.SELL),
-                eq("Chrome"),
-                eq("42% Grade"),
+                eq(commodityId),
+                eq(gradeId),
                 eq(new BigDecimal("100.0000")),
                 eq("TON"),
                 eq(new BigDecimal("1500.0000")),
@@ -157,10 +164,10 @@ class DealControllerTest {
                         .value("SELL"))
                 .andExpect(jsonPath("$.status")
                         .value("DRAFT"))
-                .andExpect(jsonPath("$.commodity")
-                        .value("Chrome"))
-                .andExpect(jsonPath("$.grade")
-                        .value("42% Grade"))
+                .andExpect(jsonPath("$.commodityId")
+                        .value(commodityId.toString()))
+                .andExpect(jsonPath("$.gradeId")
+                        .value(gradeId.toString()))
                 .andExpect(jsonPath("$.quantity")
                         .value(100.0))
                 .andExpect(jsonPath("$.unit")
@@ -175,8 +182,8 @@ class DealControllerTest {
         verify(dealService).create(
                 eq(clientId),
                 eq(DealType.SELL),
-                eq("Chrome"),
-                eq("42% Grade"),
+                eq(commodityId),
+                eq(gradeId),
                 eq(new BigDecimal("100.0000")),
                 eq("TON"),
                 eq(new BigDecimal("1500.0000")),
@@ -202,8 +209,8 @@ class DealControllerTest {
                         "DL-2026-ABC12345",
                         DealType.SELL,
                         DealStatus.DRAFT,
-                        "Chrome",
-                        "42% Grade",
+                        commodityId,
+                        gradeId,
                         new BigDecimal("100.0000"),
                         "TON",
                         new BigDecimal("1500.0000"),
@@ -233,8 +240,10 @@ class DealControllerTest {
                         .value(dealId.toString()))
                 .andExpect(jsonPath("$[0].dealNumber")
                         .value("DL-2026-ABC12345"))
-                .andExpect(jsonPath("$[0].commodity")
-                        .value("Chrome"));
+                .andExpect(jsonPath("$[0].commodityId")
+                        .value(commodityId.toString()))
+                .andExpect(jsonPath("$[0].gradeId")
+                        .value(gradeId.toString()));
 
         verify(dealService).findAll();
     }
@@ -255,8 +264,8 @@ class DealControllerTest {
                         "DL-2026-ABC12345",
                         DealType.SELL,
                         DealStatus.DRAFT,
-                        "Chrome",
-                        "42% Grade",
+                        commodityId,
+                        gradeId,
                         new BigDecimal("100.0000"),
                         "TON",
                         new BigDecimal("1500.0000"),
@@ -281,6 +290,10 @@ class DealControllerTest {
                         .value(dealId.toString()))
                 .andExpect(jsonPath("$.dealNumber")
                         .value("DL-2026-ABC12345"))
+                .andExpect(jsonPath("$.commodityId")
+                        .value(commodityId.toString()))
+                .andExpect(jsonPath("$.gradeId")
+                        .value(gradeId.toString()))
                 .andExpect(jsonPath("$.status")
                         .value("DRAFT"));
 
@@ -296,8 +309,8 @@ class DealControllerTest {
 
         UpdateDealRequest request =
                 new UpdateDealRequest(
-                        "Chrome",
-                        "44% Grade",
+                        commodityId,
+                        gradeId,
                         new BigDecimal("120.0000"),
                         "TON",
                         new BigDecimal("1600.0000"),
@@ -315,8 +328,8 @@ class DealControllerTest {
                         "DL-2026-ABC12345",
                         DealType.SELL,
                         DealStatus.DRAFT,
-                        "Chrome",
-                        "44% Grade",
+                        commodityId,
+                        gradeId,
                         new BigDecimal("120.0000"),
                         "TON",
                         new BigDecimal("1600.0000"),
@@ -332,8 +345,8 @@ class DealControllerTest {
 
         when(dealService.update(
                 eq(dealId),
-                eq("Chrome"),
-                eq("44% Grade"),
+                eq(commodityId),
+                eq(gradeId),
                 eq(new BigDecimal("120.0000")),
                 eq("TON"),
                 eq(new BigDecimal("1600.0000")),
@@ -350,8 +363,10 @@ class DealControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id")
                         .value(dealId.toString()))
-                .andExpect(jsonPath("$.grade")
-                        .value("44% Grade"))
+                .andExpect(jsonPath("$.commodityId")
+                        .value(commodityId.toString()))
+                .andExpect(jsonPath("$.gradeId")
+                        .value(gradeId.toString()))
                 .andExpect(jsonPath("$.quantity")
                         .value(120.0))
                 .andExpect(jsonPath("$.unitPrice")
@@ -361,8 +376,8 @@ class DealControllerTest {
 
         verify(dealService).update(
                 eq(dealId),
-                eq("Chrome"),
-                eq("44% Grade"),
+                eq(commodityId),
+                eq(gradeId),
                 eq(new BigDecimal("120.0000")),
                 eq("TON"),
                 eq(new BigDecimal("1600.0000")),
@@ -391,8 +406,8 @@ class DealControllerTest {
                         "DL-2026-ABC12345",
                         DealType.SELL,
                         DealStatus.WON,
-                        "Chrome",
-                        "42% Grade",
+                        commodityId,
+                        gradeId,
                         new BigDecimal("100.0000"),
                         "TON",
                         new BigDecimal("1500.0000"),
@@ -420,7 +435,11 @@ class DealControllerTest {
                 .andExpect(jsonPath("$.id")
                         .value(dealId.toString()))
                 .andExpect(jsonPath("$.status")
-                        .value("WON"));
+                        .value("WON"))
+                .andExpect(jsonPath("$.commodityId")
+                        .value(commodityId.toString()))
+                .andExpect(jsonPath("$.gradeId")
+                        .value(gradeId.toString()));
 
         verify(dealService)
                 .changeStatus(dealId, DealStatus.WON);
@@ -457,13 +476,17 @@ class DealControllerTest {
         String request = """
                 {
                     "type": "SELL",
-                    "commodity": "Chrome",
+                    "commodityId": "%s",
+                    "gradeId": "%s",
                     "quantity": 100,
                     "unit": "TON",
                     "unitPrice": 1500,
                     "currency": "ZAR"
                 }
-                """;
+                """.formatted(
+                commodityId,
+                gradeId
+        );
 
         mockMvc.perform(
                         post("/deals")
@@ -476,18 +499,50 @@ class DealControllerTest {
     }
 
     @Test
-    void shouldRejectCreateWhenCommodityIsMissing() throws Exception {
+    void shouldRejectCreateWhenCommodityIdIsMissing() throws Exception {
 
         String request = """
                 {
                     "clientId": "%s",
                     "type": "SELL",
+                    "gradeId": "%s",
                     "quantity": 100,
                     "unit": "TON",
                     "unitPrice": 1500,
                     "currency": "ZAR"
                 }
-                """.formatted(clientId);
+                """.formatted(
+                clientId,
+                gradeId
+        );
+
+        mockMvc.perform(
+                        post("/deals")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(request)
+                )
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(dealService);
+    }
+
+    @Test
+    void shouldRejectCreateWhenGradeIdIsMissing() throws Exception {
+
+        String request = """
+                {
+                    "clientId": "%s",
+                    "type": "SELL",
+                    "commodityId": "%s",
+                    "quantity": 100,
+                    "unit": "TON",
+                    "unitPrice": 1500,
+                    "currency": "ZAR"
+                }
+                """.formatted(
+                clientId,
+                commodityId
+        );
 
         mockMvc.perform(
                         post("/deals")
@@ -506,13 +561,18 @@ class DealControllerTest {
                 {
                     "clientId": "%s",
                     "type": "SELL",
-                    "commodity": "Chrome",
+                    "commodityId": "%s",
+                    "gradeId": "%s",
                     "quantity": 0,
                     "unit": "TON",
                     "unitPrice": 1500,
                     "currency": "ZAR"
                 }
-                """.formatted(clientId);
+                """.formatted(
+                clientId,
+                commodityId,
+                gradeId
+        );
 
         mockMvc.perform(
                         post("/deals")
@@ -531,13 +591,18 @@ class DealControllerTest {
                 {
                     "clientId": "%s",
                     "type": "SELL",
-                    "commodity": "Chrome",
+                    "commodityId": "%s",
+                    "gradeId": "%s",
                     "quantity": 100,
                     "unit": "TON",
                     "unitPrice": 0,
                     "currency": "ZAR"
                 }
-                """.formatted(clientId);
+                """.formatted(
+                clientId,
+                commodityId,
+                gradeId
+        );
 
         mockMvc.perform(
                         post("/deals")
@@ -599,6 +664,12 @@ class DealControllerTest {
         com.highlands.highlandscrmbackend.user.User user =
                 mock(com.highlands.highlandscrmbackend.user.User.class);
 
+        Commodity commodity =
+                mock(Commodity.class);
+
+        Grade grade =
+                mock(Grade.class);
+
         when(company.getId())
                 .thenReturn(response.companyId());
 
@@ -607,6 +678,12 @@ class DealControllerTest {
 
         when(user.getId())
                 .thenReturn(response.ownerUserId());
+
+        when(commodity.getId())
+                .thenReturn(response.commodityId());
+
+        when(grade.getId())
+                .thenReturn(response.gradeId());
 
         when(deal.getId())
                 .thenReturn(response.id());
@@ -630,10 +707,10 @@ class DealControllerTest {
                 .thenReturn(response.status());
 
         when(deal.getCommodity())
-                .thenReturn(response.commodity());
+                .thenReturn(commodity);
 
         when(deal.getGrade())
-                .thenReturn(response.grade());
+                .thenReturn(grade);
 
         when(deal.getQuantity())
                 .thenReturn(response.quantity());

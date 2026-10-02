@@ -2,12 +2,16 @@ package com.highlands.highlandscrmbackend.deal;
 
 import com.highlands.highlandscrmbackend.client.Client;
 import com.highlands.highlandscrmbackend.client.ClientRepository;
+import com.highlands.highlandscrmbackend.commodity.Commodity;
+import com.highlands.highlandscrmbackend.commodity.CommodityRepository;
+import com.highlands.highlandscrmbackend.common.exception.ResourceNotFoundException;
 import com.highlands.highlandscrmbackend.company.Company;
 import com.highlands.highlandscrmbackend.company.CompanyRepository;
+import com.highlands.highlandscrmbackend.grade.Grade;
+import com.highlands.highlandscrmbackend.grade.GradeRepository;
 import com.highlands.highlandscrmbackend.security.AuthorizationService;
 import com.highlands.highlandscrmbackend.security.CurrentUserService;
 import com.highlands.highlandscrmbackend.security.TenantContext;
-import com.highlands.highlandscrmbackend.common.exception.ResourceNotFoundException;
 import com.highlands.highlandscrmbackend.user.User;
 import com.highlands.highlandscrmbackend.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -15,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Year;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,6 +33,8 @@ public class DealService {
     private final UserRepository userRepository;
     private final CurrentUserService currentUserService;
     private final AuthorizationService authorizationService;
+    private final CommodityRepository commodityRepository;
+    private final GradeRepository gradeRepository;
 
     public DealService(
             DealRepository dealRepository,
@@ -35,7 +42,9 @@ public class DealService {
             ClientRepository clientRepository,
             UserRepository userRepository,
             CurrentUserService currentUserService,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService,
+            CommodityRepository commodityRepository,
+            GradeRepository gradeRepository
     ) {
         this.dealRepository = dealRepository;
         this.companyRepository = companyRepository;
@@ -43,13 +52,15 @@ public class DealService {
         this.userRepository = userRepository;
         this.currentUserService = currentUserService;
         this.authorizationService = authorizationService;
+        this.commodityRepository = commodityRepository;
+        this.gradeRepository = gradeRepository;
     }
 
     public Deal create(
             UUID clientId,
             DealType type,
-            String commodity,
-            String grade,
+            UUID commodityId,
+            UUID gradeId,
             BigDecimal quantity,
             String unit,
             BigDecimal unitPrice,
@@ -65,7 +76,9 @@ public class DealService {
 
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Company not found: " + companyId));
+                        new ResourceNotFoundException(
+                                "Company not found: " + companyId
+                        ));
 
         Client client = clientRepository
                 .findByIdAndCompanyId(clientId, companyId)
@@ -80,6 +93,42 @@ public class DealService {
                         new ResourceNotFoundException(
                                 "User not found: " + currentUserId
                         ));
+
+        /*
+         * Resolve Commodity within the current tenant.
+         */
+        Commodity commodity = commodityRepository
+                .findByIdAndCompanyId(commodityId, companyId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Commodity not found: " + commodityId
+                        ));
+
+        /*
+         * Resolve Grade within the current tenant.
+         */
+        Grade grade = gradeRepository
+                .findByIdAndCompanyId(gradeId, companyId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Grade not found: " + gradeId
+                        ));
+
+        /*
+         * A Grade belongs to exactly one Commodity.
+         *
+         * Prevent a deal from being created with:
+         *
+         * Commodity = Chrome
+         * Grade     = Copper Grade
+         *
+         * when the Grade actually belongs to another Commodity.
+         */
+        if (!grade.getCommodity().getId().equals(commodity.getId())) {
+            throw new ResourceNotFoundException(
+                    "Grade does not belong to commodity"
+            );
+        }
 
         String dealNumber = generateDealNumber(companyId);
 
@@ -128,8 +177,8 @@ public class DealService {
 
     public Deal update(
             UUID dealId,
-            String commodity,
-            String grade,
+            UUID commodityId,
+            UUID gradeId,
             BigDecimal quantity,
             String unit,
             BigDecimal unitPrice,
@@ -147,6 +196,35 @@ public class DealService {
                         new ResourceNotFoundException(
                                 "Deal not found: " + dealId
                         ));
+
+        /*
+         * Resolve the new Commodity within the current tenant.
+         */
+        Commodity commodity = commodityRepository
+                .findByIdAndCompanyId(commodityId, companyId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Commodity not found: " + commodityId
+                        ));
+
+        /*
+         * Resolve the new Grade within the current tenant.
+         */
+        Grade grade = gradeRepository
+                .findByIdAndCompanyId(gradeId, companyId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Grade not found: " + gradeId
+                        ));
+
+        /*
+         * Ensure the selected Grade belongs to the selected Commodity.
+         */
+        if (!grade.getCommodity().getId().equals(commodity.getId())) {
+            throw new ResourceNotFoundException(
+                    "Grade does not belong to commodity"
+            );
+        }
 
         deal.update(
                 commodity,
@@ -201,13 +279,14 @@ public class DealService {
         String dealNumber;
 
         do {
-            dealNumber = "DL-" +
-                    java.time.Year.now().getValue() +
-                    "-" +
-                    UUID.randomUUID()
-                            .toString()
-                            .substring(0, 8)
-                            .toUpperCase();
+            dealNumber = "DL-"
+                    + Year.now().getValue()
+                    + "-"
+                    + UUID.randomUUID()
+                    .toString()
+                    .substring(0, 8)
+                    .toUpperCase();
+
         } while (dealRepository.existsByCompanyIdAndDealNumber(
                 companyId,
                 dealNumber

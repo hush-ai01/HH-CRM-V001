@@ -29,8 +29,8 @@ public class DealController {
         Deal deal = dealService.create(
                 request.clientId(),
                 request.type(),
-                request.commodity(),
-                request.grade(),
+                request.commodityId(),
+                request.gradeId(),
                 request.quantity(),
                 request.unit(),
                 request.unitPrice(),
@@ -72,8 +72,8 @@ public class DealController {
     ) {
         Deal deal = dealService.update(
                 dealId,
-                request.commodity(),
-                request.grade(),
+                request.commodityId(),
+                request.gradeId(),
                 request.quantity(),
                 request.unit(),
                 request.unitPrice(),
@@ -116,8 +116,8 @@ public class DealController {
                 deal.getDealNumber(),
                 deal.getType(),
                 deal.getStatus(),
-                deal.getCommodity(),
-                deal.getGrade(),
+                deal.getCommodity().getId(),
+                deal.getGrade().getId(),
                 deal.getQuantity(),
                 deal.getUnit(),
                 deal.getUnitPrice(),
