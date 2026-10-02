@@ -1,0 +1,5 @@
+$kind: http-request
+name: Delete Grade
+method: DELETE
+url: '{{baseUrl}}/grades/{{gradeId}}'
+order: 6000

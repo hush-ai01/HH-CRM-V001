@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Grade By ID
+method: GET
+url: '{{baseUrl}}/grades/{{gradeId}}'
+order: 3000

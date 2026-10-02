@@ -1,0 +1,21 @@
+$kind: http-request
+name: Create Activity
+method: POST
+url: '{{baseUrl}}/clients/{{clientId}}/activities'
+order: 1000
+description: |-
+  Create a new client activity.
+  - type enum: CALL, WHATSAPP, EMAIL, MEETING, NOTE, QUOTE_SENT, FOLLOW_UP, OTHER
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "type": "CALL",
+      "outcome": "Discussed pricing",
+      "notes": "Client interested in bulk order",
+      "nextAction": "Send quote",
+      "nextActionAt": "2025-02-01T09:00:00Z"
+    }

@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Client Activities
+method: GET
+url: '{{baseUrl}}/clients/{{clientId}}/activities'
+order: 2000

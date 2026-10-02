@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Commodity By ID
+method: GET
+url: '{{baseUrl}}/commodities/{{commodityId}}'
+order: 3000

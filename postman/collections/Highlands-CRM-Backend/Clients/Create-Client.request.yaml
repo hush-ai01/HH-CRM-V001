@@ -1,0 +1,35 @@
+$kind: http-request
+name: Create Client
+method: POST
+url: '{{baseUrl}}/clients'
+order: 1000
+description: |-
+  Create a new client.
+  - type enum: SUPPLIER, BUYER, LOGISTICS_PARTNER, INVESTOR
+  - deliveryTerms enum: FOT, DAP, FOB, CIF
+  - accountStatus enum: PROSPECT, ACTIVE, DORMANT, INACTIVE, BLOCKED
+  - visibility enum: PRIVATE, MANAGEMENT
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Acme Corp",
+      "type": "BUYER",
+      "area": "Johannesburg",
+      "monthlyQuantity": 1000.00,
+      "weeklyQuantity": 250.00,
+      "paymentTerms": "30 days",
+      "deliveryTerms": "DAP",
+      "warehouse": "JHB Warehouse 1",
+      "contactName": "Jane Smith",
+      "contactPhone": "+27123456789",
+      "contactEmail": "jane@acme.com",
+      "accountStatus": "PROSPECT",
+      "nextAction": "Follow up call",
+      "nextActionAt": "2025-02-01T09:00:00Z",
+      "ownerUserId": "{{userId}}",
+      "visibility": "MANAGEMENT"
+    }

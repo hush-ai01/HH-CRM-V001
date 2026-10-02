@@ -1,0 +1,29 @@
+$kind: http-request
+name: Update Client
+method: PUT
+url: '{{baseUrl}}/clients/{{clientId}}'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Acme Corp Updated",
+      "type": "BUYER",
+      "area": "Cape Town",
+      "monthlyQuantity": 1200.00,
+      "weeklyQuantity": 300.00,
+      "paymentTerms": "45 days",
+      "deliveryTerms": "FOB",
+      "warehouse": "CPT Warehouse 2",
+      "contactName": "Jane Smith",
+      "contactPhone": "+27987654321",
+      "contactEmail": "jane.updated@acme.com",
+      "accountStatus": "ACTIVE",
+      "nextAction": "Send quote",
+      "nextActionAt": "2025-02-15T10:00:00Z",
+      "ownerUserId": "{{userId}}",
+      "visibility": "MANAGEMENT"
+    }

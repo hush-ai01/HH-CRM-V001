@@ -1,0 +1,10 @@
+$kind: http-request
+name: Get All Grades
+method: GET
+url: '{{baseUrl}}/grades'
+order: 2000
+queryParams:
+  - key: commodityId
+    value: '{{commodityId}}'
+    description: 'Optional: filter by commodity'
+    disabled: true

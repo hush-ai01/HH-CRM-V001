@@ -1,0 +1,17 @@
+$kind: http-request
+name: Create Grade
+method: POST
+url: '{{baseUrl}}/grades'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "commodityId": "{{commodityId}}",
+      "name": "Grade A",
+      "code": "GRA",
+      "description": "Top quality grade"
+    }

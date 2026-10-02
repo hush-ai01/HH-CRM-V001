@@ -1,0 +1,14 @@
+$kind: http-request
+name: Change Commodity Status
+method: PATCH
+url: '{{baseUrl}}/commodities/{{commodityId}}/status'
+order: 5000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "active": true
+    }

@@ -1,0 +1,5 @@
+$kind: http-request
+name: Add Permission to Role
+method: POST
+url: '{{baseUrl}}/roles/{{roleId}}/permissions/{{permissionId}}'
+order: 2000

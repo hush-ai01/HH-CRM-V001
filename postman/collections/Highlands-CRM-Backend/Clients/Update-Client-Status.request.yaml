@@ -1,0 +1,14 @@
+$kind: http-request
+name: Update Client Status
+method: PATCH
+url: '{{baseUrl}}/clients/{{clientId}}/status'
+order: 5000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "accountStatus": "ACTIVE"
+    }

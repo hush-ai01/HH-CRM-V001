@@ -1,0 +1,17 @@
+$kind: http-request
+name: Update Grade
+method: PUT
+url: '{{baseUrl}}/grades/{{gradeId}}'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "commodityId": "{{commodityId}}",
+      "name": "Grade A Premium",
+      "code": "GRAP",
+      "description": "Premium top quality grade"
+    }

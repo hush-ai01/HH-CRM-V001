@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get All Permissions
+method: GET
+url: '{{baseUrl}}/permissions'
+order: 1000

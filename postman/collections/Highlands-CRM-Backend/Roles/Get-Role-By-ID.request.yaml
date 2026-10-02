@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Role By ID
+method: GET
+url: '{{baseUrl}}/roles/{{roleId}}'
+order: 3000

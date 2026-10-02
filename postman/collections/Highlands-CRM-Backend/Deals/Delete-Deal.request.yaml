@@ -1,0 +1,5 @@
+$kind: http-request
+name: Delete Deal
+method: DELETE
+url: '{{baseUrl}}/deals/{{dealId}}'
+order: 6000

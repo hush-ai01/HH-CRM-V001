@@ -1,0 +1,21 @@
+$kind: http-request
+name: Update Deal
+method: PUT
+url: '{{baseUrl}}/deals/{{dealId}}'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "commodity": "Maize",
+      "grade": "Grade B",
+      "quantity": 600.00,
+      "unit": "MT",
+      "unitPrice": 3400.00,
+      "currency": "ZAR",
+      "expectedCloseDate": "2025-04-30",
+      "notes": "Updated bulk order"
+    }

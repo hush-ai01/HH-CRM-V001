@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get All Calendar Events
+method: GET
+url: '{{baseUrl}}/calendar/events'
+order: 2000

@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Permission By ID
+method: GET
+url: '{{baseUrl}}/permissions/{{permissionId}}'
+order: 2000

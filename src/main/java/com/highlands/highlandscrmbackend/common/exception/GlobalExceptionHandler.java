@@ -1,13 +1,13 @@
 package com.highlands.highlandscrmbackend.common.exception;
 
 import com.highlands.highlandscrmbackend.auth.InvalidCredentialsException;
+import com.highlands.highlandscrmbackend.security.ForbiddenException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import com.highlands.highlandscrmbackend.security.ForbiddenException;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -112,6 +112,22 @@ public class GlobalExceptionHandler {
                 HttpStatus.FORBIDDEN,
                 exception.getMessage()
         );
+    }
+
+    @ExceptionHandler(CommodityAlreadyExistsException.class)
+    public ResponseEntity<Map<String, Object>> handleCommodityAlreadyExists(
+            CommodityAlreadyExistsException exception) {
+
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(GradeAlreadyExistsException.class)
+    public ResponseEntity<Map<String, Object>> handleGradeAlreadyExists(
+            GradeAlreadyExistsException exception) {
+        return buildResponse(HttpStatus.CONFLICT, exception.getMessage());
     }
 
     private ResponseEntity<Map<String, Object>> buildResponse(

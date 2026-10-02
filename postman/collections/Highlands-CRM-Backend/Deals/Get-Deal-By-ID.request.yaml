@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Deal By ID
+method: GET
+url: '{{baseUrl}}/deals/{{dealId}}'
+order: 3000

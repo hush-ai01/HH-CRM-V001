@@ -1,0 +1,16 @@
+$kind: http-request
+name: Update User
+method: PUT
+url: '{{baseUrl}}/users/{{userId}}'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "updated@example.com",
+      "firstName": "Jane",
+      "lastName": "Doe"
+    }

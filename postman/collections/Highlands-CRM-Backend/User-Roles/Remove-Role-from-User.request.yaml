@@ -1,0 +1,5 @@
+$kind: http-request
+name: Remove Role from User
+method: DELETE
+url: '{{baseUrl}}/users/{{userId}}/roles/{{roleId}}'
+order: 3000

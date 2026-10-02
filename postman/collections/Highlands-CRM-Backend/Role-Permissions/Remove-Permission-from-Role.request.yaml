@@ -1,0 +1,5 @@
+$kind: http-request
+name: Remove Permission from Role
+method: DELETE
+url: '{{baseUrl}}/roles/{{roleId}}/permissions/{{permissionId}}'
+order: 3000

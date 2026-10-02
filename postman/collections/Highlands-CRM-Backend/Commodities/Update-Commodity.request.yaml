@@ -1,0 +1,16 @@
+$kind: http-request
+name: Update Commodity
+method: PUT
+url: '{{baseUrl}}/commodities/{{commodityId}}'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Maize Updated",
+      "code": "MZE",
+      "description": "Updated description"
+    }

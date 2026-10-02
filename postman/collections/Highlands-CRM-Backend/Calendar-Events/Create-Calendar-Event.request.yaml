@@ -1,0 +1,22 @@
+$kind: http-request
+name: Create Calendar Event
+method: POST
+url: '{{baseUrl}}/calendar/events'
+order: 1000
+description: |-
+  Create a new calendar event.
+  - type enum: CALL, WHATSAPP, EMAIL, MEETING, FOLLOW_UP, TASK, OTHER
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "title": "Client Meeting",
+      "type": "MEETING",
+      "scheduledAt": "2025-02-10T10:00:00Z",
+      "notes": "Discuss Q1 targets",
+      "linkedEntityType": "CLIENT",
+      "linkedEntityId": "{{clientId}}"
+    }

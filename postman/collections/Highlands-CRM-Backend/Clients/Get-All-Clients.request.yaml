@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get All Clients
+method: GET
+url: '{{baseUrl}}/clients'
+order: 2000

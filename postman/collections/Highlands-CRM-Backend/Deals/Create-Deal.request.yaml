@@ -1,0 +1,27 @@
+$kind: http-request
+name: Create Deal
+method: POST
+url: '{{baseUrl}}/deals'
+order: 1000
+description: |-
+  Create a new deal.
+  - type enum: BUY, SELL
+  - status enum: DRAFT, OPEN, WON, LOST, CANCELLED
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "clientId": "{{clientId}}",
+      "type": "SELL",
+      "commodity": "Maize",
+      "grade": "Grade A",
+      "quantity": 500.00,
+      "unit": "MT",
+      "unitPrice": 3500.00,
+      "currency": "ZAR",
+      "expectedCloseDate": "2025-03-31",
+      "notes": "Bulk order for Q1"
+    }

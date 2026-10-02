@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Role Permissions
+method: GET
+url: '{{baseUrl}}/roles/{{roleId}}/permissions'
+order: 1000

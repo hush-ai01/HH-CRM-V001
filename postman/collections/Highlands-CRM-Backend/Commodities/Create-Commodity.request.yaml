@@ -1,0 +1,16 @@
+$kind: http-request
+name: Create Commodity
+method: POST
+url: '{{baseUrl}}/commodities'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Maize",
+      "code": "MZE",
+      "description": "White and yellow maize"
+    }

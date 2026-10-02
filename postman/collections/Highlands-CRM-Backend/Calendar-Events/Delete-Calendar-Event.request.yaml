@@ -1,0 +1,5 @@
+$kind: http-request
+name: Delete Calendar Event
+method: DELETE
+url: '{{baseUrl}}/calendar/events/{{eventId}}'
+order: 5000

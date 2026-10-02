@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get All Deals
+method: GET
+url: '{{baseUrl}}/deals'
+order: 2000
