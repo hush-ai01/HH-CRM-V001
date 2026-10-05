@@ -1,6 +1,7 @@
 package com.highlands.highlandscrmbackend.common.exception;
 
 import com.highlands.highlandscrmbackend.auth.InvalidCredentialsException;
+import com.highlands.highlandscrmbackend.fleet.TrailerAlreadyExistsException;
 import com.highlands.highlandscrmbackend.security.ForbiddenException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -128,6 +129,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleGradeAlreadyExists(
             GradeAlreadyExistsException exception) {
         return buildResponse(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(TrailerAlreadyExistsException.class)
+    public ResponseEntity<Map<String, Object>> handleTrailerAlreadyExists(
+            TrailerAlreadyExistsException exception) {
+
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                exception.getMessage()
+        );
     }
 
     private ResponseEntity<Map<String, Object>> buildResponse(
